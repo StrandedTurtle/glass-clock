@@ -28,8 +28,20 @@ Requires JDK 17 and the Android SDK (Android Studio does both).
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Every push also builds in GitHub Actions (`.github/workflows/build.yml`); the debug APK is attached to
-the run as an artifact. The debug APK is debug-signed and installs directly — no Play Store needed.
+Every push builds in GitHub Actions (`.github/workflows/build.yml`). Pushes to the default branch also
+publish a **GitHub release** (`v1.0.<run number>`) with the signed APK attached.
+
+## Install and update with Obtainium
+
+1. The repo is private, so Obtainium needs a token: on GitHub create a *fine-grained personal access
+   token* with read-only **Contents** access to `glass-clock`, then in Obtainium open Settings and paste
+   it into the GitHub personal access token field.
+2. In Obtainium tap **Add app** and enter `https://github.com/StrandedTurtle/glass-clock`.
+3. Install. From then on, every new release shows up as an update in Obtainium.
+
+Releases are all signed with the same key (`app/glassclock-release.jks`), so updates install over each
+other. An earlier debug build (from a zip) has a different signature: uninstall it once before the first
+Obtainium install, then re-add the widget.
 
 ## Use with Niagara
 

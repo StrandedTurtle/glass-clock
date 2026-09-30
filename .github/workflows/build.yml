@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write  # to publish releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,9 +20,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
-      - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
+      - name: Build release APK
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Name the APK
+        run: cp app/build/outputs/apk/release/app-release.apk glass-clock-1.0.${{ github.run_number }}.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: glass-clock-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: glass-clock-apk
+          path: glass-clock-*.apk
+
+      # Every push to the default branch becomes a GitHub release with the APK attached,
+      # which is what Obtainium watches for updates.
+      - name: Publish release
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Glass Clock 1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body: ${{ github.event.head_commit.message }}
+          files: glass-clock-1.0.${{ github.run_number }}.apk
+          make_latest: true

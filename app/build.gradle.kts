@@ -13,13 +13,28 @@ android {
         applicationId = "com.dylan.glasswidget"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // CI stamps each build with its run number so every release is a newer version for
+        // Obtainium to update to; local builds are 1.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
+    }
+
+    signingConfigs {
+        // One fixed key for every release, so updates install over the previous version.
+        // It lives in this (private) repo for convenience; move it to CI secrets if the repo goes public.
+        create("release") {
+            storeFile = file("glassclock-release.jks")
+            storePassword = "glassclock"
+            keyAlias = "glassclock"
+            keyPassword = "glassclock"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
