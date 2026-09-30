@@ -1,16 +1,23 @@
 # Glass Clock
 
-A single Android home-screen widget — time, date and weather — styled as soft translucent glass, built to
-replace Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use it).
+A single Android home-screen widget styled after HyperOS 4's glass lockscreen clock, built to replace
+Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use it).
 
-- **Responsive**: three layouts (compact ≈ 3×1, standard ≈ 4×2, tall ≈ 4×3) chosen by the launcher.
+- **Glass digits**: a bundled COLRv1 colour font (heavy condensed numerals derived from Anton) with a
+  frosted body, bright rim and top highlight. It's a real `TextClock`, so it ticks without the app
+  running, and it auto-sizes to fill whatever space the launcher gives the widget.
+- **Floating glass pills**: date | weather icon, temperature, condition and high/low; a details pill
+  (feels like, rain chance, wind, humidity, UV, air quality); and your **next calendar event**.
+  A lockscreen-style *Sunrise 6:59* line sits above the clock.
+- **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
+  wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
+  simply lets the system wallpaper show through.
 - **Weather**: Open-Meteo (no API key). Pick a city by search, or use coarse device location.
-  The widget only ever draws cached data; a WorkManager job refreshes it every 30 min.
-- **Tap targets**: clock, date and weather each open an app you choose (defaults: your alarm/clock app
-  and calendar; weather opens settings until you set a city).
-- **Per-widget settings**: text size, padding, glass style (Soft/Clear), corner radius, tint
-  (Dynamic/Light/Dark), 12/24h, date format, °C/°F.
-- Material You colours, bundled Quicksand font (SIL OFL), no Play Services, no storage permissions.
+- **Tap targets**: clock, date and weather each open an app you choose; the event opens in your calendar.
+- **Per-widget settings**: glass or solid digits, frosted/clear glass, tint (Frost, Smoke, light glass
+  with dark text, wallpaper colours), centre/left alignment, text size, 12/24h, colon, date format, units.
+- No Play Services, no storage permission. Location and calendar permissions are only asked for if you
+  switch those features on.
 
 ## Build
 
@@ -38,19 +45,20 @@ HyperOS kills background apps aggressively. In the app's settings screen use the
 
 ## Design notes
 
-- **Real backdrop blur is not possible** for a widget (the launcher composites it; apps can't read the
-  wallpaper on Android 13+). The glass look is layered translucency: a theme-tinted scrim, a hairline
-  edge and a faint diagonal sheen. Scrim opacity lives in `widget/GlassPalette.kt` if you want it
-  more or less see-through.
-- All text is a real `TextClock`/`TextView` via Glance's `AndroidRemoteViews`, so the system keeps the
-  clock ticking without the app running and the bundled font applies.
-- Weather is cached per location, so several widgets on the same city share one fetch.
-- Device location is read when you tap *Use my location* (and opportunistically by the worker). Android
-  may withhold location from background apps, so the last stored fix is used when that happens.
-- The `data/` package has no Android dependencies apart from the cache/worker; the API parsing,
-  code→icon mapping and formatting are covered by JVM unit tests (`app/src/test`).
-- Icons are from [Lucide](https://lucide.dev) (ISC); regenerate resources with `python3 tools/gen_resources.py`.
-  Quicksand licence: `licenses/Quicksand-OFL.txt`.
+- **Real backdrop blur is not possible** for a widget: the launcher composites it, and apps can't read
+  the wallpaper on Android 13+. The glass is layered translucency, as dense as legibility allows. The
+  frost strength lives in `tools/build_clock_font.py` (digit layers) and `tools/gen_resources.py` (pills).
+- The digit font is generated: `pip install fonttools skia-pathops`, then `python3 tools/build_clock_font.py`.
+  COLRv1 renders natively on Android 13+; older versions fall back to plain digits.
+- Layout: `SizeMode.Exact`, so the widget lays out for its real size. It picks one of four arrangements by
+  height (short, standard, tall, large), and the preview in settings renders the same thing.
+- Weather and calendar events share one cache. Workers write it: a 30-minute weather refresh, a calendar
+  content-change trigger, and a one-shot redraw at the next event start/end, sunrise/sunset or midnight.
+  The widget only reads it.
+- The `data/` package logic (API parsing, sun and event selection, formatting) has no Android
+  dependencies and is covered by JVM unit tests (`app/src/test`).
+- Icons are from [Lucide](https://lucide.dev) (ISC); regenerate with `python3 tools/gen_resources.py`.
+  Font licence: `licenses/Anton-OFL.txt`.
 
 ## Testing checklist (on a device)
 
