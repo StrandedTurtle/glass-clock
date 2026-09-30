@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <gradient android:angle="315" android:startColor="#FF5B7BA8" android:endColor="#FF2B3A57" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/glass_edge_soft_28" />
+</layer-list>

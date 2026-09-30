@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Size, colour and formats are overridden per render from the widget settings. -->
+<TextClock xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clockText"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:fontFamily="@font/quicksand_semibold"
+    android:format12Hour="h:mm"
+    android:format24Hour="HH:mm"
+    android:includeFontPadding="false"
+    android:singleLine="true"
+    android:textColor="#FFFFFFFF"
+    android:textSize="44sp" />

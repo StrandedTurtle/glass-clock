@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Glass Clock</string>
+    <string name="widget_description">Clock, date and weather on a soft glass panel</string>
+
+    <!-- Weather conditions -->
+    <string name="cond_clear">Clear</string>
+    <string name="cond_partly_cloudy">Partly cloudy</string>
+    <string name="cond_cloudy">Cloudy</string>
+    <string name="cond_fog">Fog</string>
+    <string name="cond_drizzle">Drizzle</string>
+    <string name="cond_rain">Rain</string>
+    <string name="cond_snow">Snow</string>
+    <string name="cond_storm">Thunderstorm</string>
+    <string name="cond_unknown">Weather</string>
+    <string name="temp_placeholder">--°</string>
+    <string name="high_low">H %1$s  L %2$s</string>
+    <string name="set_location">Set city</string>
+
+    <!-- Main screen -->
+    <string name="main_title">Glass Clock</string>
+    <string name="main_no_widget_title">No widget placed yet</string>
+    <string name="main_no_widget_body">Add the “Glass Clock” widget to your home screen. In Niagara: Niagara settings → Features → Niagara Widget → Add custom widget, then long-press the clock and choose “Replace clock with widget”.</string>
+    <string name="main_pick_widget">Choose a widget to configure</string>
+    <string name="main_widget_n">Widget %1$d</string>
+
+    <!-- Config screen -->
+    <string name="config_title">Customise widget</string>
+    <string name="config_done">Done</string>
+    <string name="section_weather">Weather</string>
+    <string name="section_glass">Glass</string>
+    <string name="section_size">Size</string>
+    <string name="section_clock_date">Clock and date</string>
+    <string name="section_taps">Tap targets</string>
+    <string name="section_reliability">Keep it updating</string>
+
+    <string name="loc_mode">Location</string>
+    <string name="loc_city">Searched city</string>
+    <string name="loc_device">Device (coarse)</string>
+    <string name="city_search_hint">Search for a city</string>
+    <string name="city_current">Current: %1$s</string>
+    <string name="city_none">No city chosen yet</string>
+    <string name="city_no_results">No matches</string>
+    <string name="city_error">Search failed — check your connection</string>
+    <string name="device_use">Use my location</string>
+    <string name="device_current">Using device location (%1$s, %2$s)</string>
+    <string name="device_none">No fix yet — tap “Use my location”</string>
+    <string name="device_denied">Location permission denied</string>
+    <string name="device_unavailable">Couldn’t get a location fix</string>
+    <string name="temp_unit">Temperature unit</string>
+    <string name="unit_c">°C</string>
+    <string name="unit_f">°F</string>
+    <string name="refresh_now">Refresh weather now</string>
+
+    <string name="glass_variant">Glass style</string>
+    <string name="variant_clear">Clear</string>
+    <string name="variant_soft">Soft</string>
+    <string name="corner_radius">Corner radius: %1$d dp</string>
+    <string name="tint">Tint</string>
+    <string name="tint_dynamic">Dynamic</string>
+    <string name="tint_light">Light</string>
+    <string name="tint_dark">Dark</string>
+
+    <string name="text_scale">Text size: %1$d%%</string>
+    <string name="padding">Padding</string>
+    <string name="padding_tight">Tight</string>
+    <string name="padding_normal">Normal</string>
+    <string name="padding_roomy">Roomy</string>
+
+    <string name="hour_mode">Time format</string>
+    <string name="hour_system">System</string>
+    <string name="hour_12">12 hour</string>
+    <string name="hour_24">24 hour</string>
+    <string name="date_format">Date format</string>
+
+    <string name="tap_clock">Clock opens</string>
+    <string name="tap_date">Date opens</string>
+    <string name="tap_weather">Weather opens</string>
+    <string name="tap_default">Default</string>
+    <string name="tap_none">Nothing</string>
+    <string name="picker_title">Choose an app</string>
+    <string name="picker_search">Search apps</string>
+    <string name="picker_close">Cancel</string>
+
+    <string name="reliability_body">Some phones (HyperOS especially) stop background apps, which starves the hourly weather refresh. Set battery to “No restrictions” and turn on Autostart for this app.</string>
+    <string name="open_battery">Battery settings</string>
+    <string name="open_autostart">Autostart</string>
+    <string name="open_app_info">App info</string>
+</resources>
