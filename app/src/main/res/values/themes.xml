@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GlassClock" parent="@android:style/Theme.Material.DayNight.NoActionBar">
-        <item name="android:windowLightStatusBar">false</item>
+    <!-- Compose draws all UI itself; this only supplies the window chrome and follows system dark mode. -->
+    <style name="Theme.GlassClock" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
     </style>
 </resources>
