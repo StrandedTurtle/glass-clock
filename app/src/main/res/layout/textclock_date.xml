@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The date ticks over at midnight by itself; format and colour are set per render. -->
 <TextClock xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/dateText"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:fontFamily="@font/quicksand_medium"
+    android:fontFamily="sans-serif"
     android:format12Hour="EEE d MMM"
     android:format24Hour="EEE d MMM"
     android:includeFontPadding="false"
     android:singleLine="true"
     android:textColor="#FFFFFFFF"
-    android:textSize="14sp" />
+    android:textSize="13sp" />

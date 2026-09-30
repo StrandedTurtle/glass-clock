@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Glass Clock</string>
-    <string name="widget_description">Clock, date and weather on a soft glass panel</string>
+    <string name="widget_description">HyperOS-style glass clock with date, weather and your next event</string>
 
     <!-- Weather conditions -->
     <string name="cond_clear">Clear</string>
@@ -14,8 +14,19 @@
     <string name="cond_storm">Thunderstorm</string>
     <string name="cond_unknown">Weather</string>
     <string name="temp_placeholder">--°</string>
-    <string name="high_low">H %1$s  L %2$s</string>
     <string name="set_location">Set city</string>
+
+    <!-- Widget lines -->
+    <string name="high_low">↑%1$s ↓%2$s</string>
+    <string name="sunrise_at">Sunrise %1$s</string>
+    <string name="sunset_at">Sunset %1$s</string>
+    <string name="feels_like">Feels %1$s</string>
+    <string name="aqi">AQI %1$d</string>
+    <string name="percent">%1$d%%</string>
+    <string name="event_now">Now</string>
+    <string name="event_today">Today</string>
+    <string name="event_tomorrow">Tomorrow</string>
+    <string name="event_untitled">Busy</string>
 
     <!-- Main screen -->
     <string name="main_title">Glass Clock</string>
@@ -27,12 +38,43 @@
     <!-- Config screen -->
     <string name="config_title">Customise widget</string>
     <string name="config_done">Done</string>
-    <string name="section_weather">Weather</string>
-    <string name="section_glass">Glass</string>
-    <string name="section_size">Size</string>
+    <string name="preview_size">Preview size</string>
+    <string name="preview_error">Preview unavailable</string>
+    <string name="preview_this">This widget</string>
+    <string name="preview_compact">Short</string>
+    <string name="preview_standard">Standard</string>
+    <string name="preview_tall">Tall</string>
+    <string name="preview_large">Large</string>
+
+    <string name="section_look">Look</string>
     <string name="section_clock_date">Clock and date</string>
+    <string name="section_weather">Weather</string>
+    <string name="section_calendar">Calendar</string>
     <string name="section_taps">Tap targets</string>
     <string name="section_reliability">Keep it updating</string>
+
+    <string name="clock_style">Clock</string>
+    <string name="style_glass">Glass</string>
+    <string name="style_solid">Solid</string>
+    <string name="glass_variant">Glass</string>
+    <string name="variant_soft">Frosted</string>
+    <string name="variant_clear">Clear</string>
+    <string name="tint">Tint</string>
+    <string name="tint_frost">Frost</string>
+    <string name="tint_smoke">Smoke</string>
+    <string name="tint_ink">Light glass, dark text</string>
+    <string name="tint_dynamic">Wallpaper colours</string>
+    <string name="alignment">Alignment</string>
+    <string name="align_center">Centre</string>
+    <string name="align_start">Left</string>
+    <string name="text_scale">Clock size: %1$d%%</string>
+
+    <string name="hour_mode">Time format</string>
+    <string name="hour_system">System</string>
+    <string name="hour_12">12 hour</string>
+    <string name="hour_24">24 hour</string>
+    <string name="show_colon">Show colon between hours and minutes</string>
+    <string name="date_format">Date format</string>
 
     <string name="loc_mode">Location</string>
     <string name="loc_city">Searched city</string>
@@ -47,42 +89,37 @@
     <string name="device_none">No fix yet — tap “Use my location”</string>
     <string name="device_denied">Location permission denied</string>
     <string name="device_unavailable">Couldn’t get a location fix</string>
-    <string name="temp_unit">Temperature unit</string>
-    <string name="unit_c">°C</string>
-    <string name="unit_f">°F</string>
+    <string name="temp_unit">Units</string>
+    <string name="unit_c">°C, km/h</string>
+    <string name="unit_f">°F, mph</string>
+    <string name="weather_details">Show</string>
+    <string name="detail_condition">Condition</string>
+    <string name="detail_high_low">High / low</string>
+    <string name="detail_sun">Sunrise / sunset</string>
+    <string name="detail_feels">Feels like</string>
+    <string name="detail_rain">Rain chance</string>
+    <string name="detail_wind">Wind</string>
+    <string name="detail_humidity">Humidity</string>
+    <string name="detail_uv">UV index</string>
+    <string name="detail_aqi">Air quality</string>
     <string name="refresh_now">Refresh weather now</string>
 
-    <string name="glass_variant">Glass style</string>
-    <string name="variant_clear">Clear</string>
-    <string name="variant_soft">Soft</string>
-    <string name="corner_radius">Corner radius: %1$d dp</string>
-    <string name="tint">Tint</string>
-    <string name="tint_dynamic">Dynamic</string>
-    <string name="tint_light">Light</string>
-    <string name="tint_dark">Dark</string>
-
-    <string name="text_scale">Text size: %1$d%%</string>
-    <string name="padding">Padding</string>
-    <string name="padding_tight">Tight</string>
-    <string name="padding_normal">Normal</string>
-    <string name="padding_roomy">Roomy</string>
-
-    <string name="hour_mode">Time format</string>
-    <string name="hour_system">System</string>
-    <string name="hour_12">12 hour</string>
-    <string name="hour_24">24 hour</string>
-    <string name="date_format">Date format</string>
+    <string name="show_events">Show next event</string>
+    <string name="show_events_body">From every calendar synced to this phone. Declined events are skipped.</string>
+    <string name="events_all_day">Include all-day events</string>
+    <string name="calendar_denied">Calendar permission denied</string>
 
     <string name="tap_clock">Clock opens</string>
     <string name="tap_date">Date opens</string>
     <string name="tap_weather">Weather opens</string>
     <string name="tap_default">Default</string>
     <string name="tap_none">Nothing</string>
+    <string name="tap_event_note">Tapping the event opens it in your calendar.</string>
     <string name="picker_title">Choose an app</string>
     <string name="picker_search">Search apps</string>
     <string name="picker_close">Cancel</string>
 
-    <string name="reliability_body">Some phones (HyperOS especially) stop background apps, which starves the hourly weather refresh. Set battery to “No restrictions” and turn on Autostart for this app.</string>
+    <string name="reliability_body">Some phones (HyperOS especially) stop background apps, which starves the weather and calendar refresh. Set battery to “No restrictions” and turn on Autostart for this app.</string>
     <string name="open_battery">Battery settings</string>
     <string name="open_autostart">Autostart</string>
     <string name="open_app_info">App info</string>

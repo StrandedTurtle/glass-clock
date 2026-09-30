@@ -5,4 +5,11 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
     </style>
+
+    <!-- Settings: the real home-screen wallpaper shows through behind the live widget preview.
+         Needs no permission — the system composites the wallpaper, the app never reads it. -->
+    <style name="Theme.GlassClock.Wallpaper">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources>

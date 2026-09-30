@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Only used when the user picks "device location"; city search needs no permission. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Only used when "Show next event" is switched on. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
 
     <!-- Package visibility (Android 11+): list launcher apps for the tap-target pickers,
          and resolve the default clock / calendar apps. Build-time declaration, no prompt. -->
@@ -39,7 +41,8 @@
 
         <activity
             android:name=".config.ConfigActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.GlassClock.Wallpaper">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

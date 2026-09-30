@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.dylan.glasswidget.R
+import com.dylan.glasswidget.data.CalendarRefreshWorker
 import com.dylan.glasswidget.data.WeatherRefreshWorker
 import com.dylan.glasswidget.widget.GlassClockWidget
 
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WeatherRefreshWorker.schedule(this)
+        CalendarRefreshWorker.observe(this)
 
         fun configure(appWidgetId: Int) = startActivity(
             Intent(this, ConfigActivity::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)

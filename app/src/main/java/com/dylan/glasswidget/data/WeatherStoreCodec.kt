@@ -1,10 +1,12 @@
 package com.dylan.glasswidget.data
 
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-/** JSON (de)serialisation and pruning for the cache blob; kept free of Android so it is unit-testable. */
+/** JSON (de)serialisation and pruning for the cached blobs; kept free of Android so it is unit-testable. */
 object WeatherStoreCodec {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+    private val eventsSerializer = ListSerializer(CalendarEvent.serializer())
     const val MAX_ENTRIES = 8
 
     fun encode(store: WeatherStore): String = json.encodeToString(WeatherStore.serializer(), store)
@@ -20,4 +22,10 @@ object WeatherStoreCodec {
         val kept = merged.entries.sortedByDescending { it.value.fetchedAtEpochMs }.take(MAX_ENTRIES)
         return WeatherStore(kept.associate { it.key to it.value })
     }
+
+    fun encodeEvents(events: List<CalendarEvent>): String = json.encodeToString(eventsSerializer, events)
+
+    fun decodeEvents(text: String?): List<CalendarEvent> =
+        if (text.isNullOrBlank()) emptyList()
+        else runCatching { json.decodeFromString(eventsSerializer, text) }.getOrDefault(emptyList())
 }

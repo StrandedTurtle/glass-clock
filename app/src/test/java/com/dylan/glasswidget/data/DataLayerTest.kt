@@ -10,9 +10,12 @@ class DataLayerTest {
     private val forecastJson = """
         {"latitude":51.5,"longitude":-0.12,"utc_offset_seconds":3600,
          "current_units":{"temperature_2m":"°C"},
-         "current":{"time":"2026-09-30T23:45","interval":900,"temperature_2m":13.4,"weather_code":61,"is_day":0},
+         "current":{"time":"2026-09-30T23:45","interval":900,"temperature_2m":13.4,"apparent_temperature":11.8,
+                    "weather_code":61,"is_day":0,"relative_humidity_2m":87,"wind_speed_10m":14.6},
          "daily_units":{},
-         "daily":{"time":["2026-09-30"],"temperature_2m_max":[17.2],"temperature_2m_min":[9.1]}}
+         "daily":{"time":["2026-09-30","2026-10-01"],"temperature_2m_max":[17.2,16.0],"temperature_2m_min":[9.1,8.0],
+                  "sunrise":["2026-09-30T06:57","2026-10-01T06:59"],"sunset":["2026-09-30T18:45","2026-10-01T18:43"],
+                  "precipitation_probability_max":[80,20],"uv_index_max":[2.45,3.1]}}
     """.trimIndent()
 
     @Test fun parsesForecast() {
@@ -23,6 +26,29 @@ class DataLayerTest {
         assertEquals(17.2, s.tempMaxC, 0.0)
         assertEquals(9.1, s.tempMinC, 0.0)
         assertEquals(42L, s.fetchedAtEpochMs)
+        assertEquals(11.8, s.feelsLikeC!!, 0.0)
+        assertEquals(87, s.humidityPct)
+        assertEquals(14.6, s.windKmh!!, 0.0)
+        assertEquals(80, s.precipChancePct)
+        assertEquals(2.45, s.uvIndexMax!!, 0.0)
+        // Local times at UTC+1 -> epoch ms; two days of rise/set, in time order.
+        assertEquals(4, s.sunEvents.size)
+        assertEquals(java.time.Instant.parse("2026-09-30T05:57:00Z").toEpochMilli(), s.sunEvents[0].atEpochMs)
+        assertEquals(true, s.sunEvents[0].sunrise)
+        assertEquals(false, s.sunEvents[1].sunrise)
+        assertEquals(java.time.Instant.parse("2026-10-01T05:59:00Z").toEpochMilli(), s.sunEvents[2].atEpochMs)
+    }
+
+    @Test fun airQualityParsesAndIsMergedButOptional() = runBlocking {
+        assertEquals(21.0, OpenMeteoApi.parseAirQuality("""{"current":{"european_aqi":21,"us_aqi":38.6}}""")!!.europeanAqi!!, 0.0)
+        val withAir = OpenMeteoApi { url -> if ("air-quality" in url) """{"current":{"european_aqi":21,"us_aqi":38.6}}""" else forecastJson }
+        val a = withAir.fetchCurrent(1.0, 2.0, nowMs = 1)
+        assertEquals(21, a.europeanAqi)
+        assertEquals(39, a.usAqi)
+        val airDown = OpenMeteoApi { url -> if ("air-quality" in url) error("503") else forecastJson }
+        val b = airDown.fetchCurrent(1.0, 2.0, nowMs = 1)
+        assertEquals(null, b.europeanAqi)
+        assertEquals(61, b.weatherCode)
     }
 
     @Test fun forecastWithoutDailyOrIsDayStillParses() {
@@ -46,7 +72,8 @@ class DataLayerTest {
     @Test fun forecastUrlIsWellFormed() {
         val url = OpenMeteoApi.forecastUrl(-33.86881, 151.20929)
         assertTrue(url, url.contains("latitude=-33.8688&longitude=151.2093"))
-        assertTrue(url, url.contains("current=temperature_2m,weather_code,is_day"))
+        assertTrue(url, url.contains("apparent_temperature") && url.contains("sunrise,sunset"))
+        assertTrue(url, url.contains("forecast_days=2"))
         assertTrue(url, url.contains("timezone=auto"))
     }
 
@@ -79,7 +106,7 @@ class DataLayerTest {
     }
 
     @Test fun fetchCurrentUsesInjectedHttp() = runBlocking {
-        val api = OpenMeteoApi { forecastJson }
+        val api = OpenMeteoApi { url -> if ("air-quality" in url) "{}" else forecastJson }
         assertEquals(61, api.fetchCurrent(51.5, -0.12, nowMs = 7).weatherCode)
     }
 
@@ -135,26 +162,41 @@ class DataLayerTest {
     @Test fun optionsFallBackToDefaults() {
         assertEquals(GlassVariant.Soft, GlassVariant.from(null))
         assertEquals(GlassVariant.Clear, GlassVariant.from("clear"))
-        assertEquals(PaddingMode.Normal, PaddingMode.from("bogus"))
-        assertEquals(TintMode.Dynamic, TintMode.from(""))
+        assertEquals(TintMode.Frost, TintMode.from("light")) // pre-redesign value falls back cleanly
+        assertEquals(TintMode.Ink, TintMode.from("ink"))
+        assertEquals(ClockStyle.Glass, ClockStyle.from(null))
+        assertEquals(WidgetAlignment.Start, WidgetAlignment.from("start"))
         assertEquals(HourMode.H24, HourMode.from("24"))
         assertEquals(DatePreset.Short, DatePreset.from("nope"))
         assertEquals(TempUnit.F, TempUnit.from("f"))
         assertEquals(LocationMode.Device, LocationMode.from("device"))
     }
 
+    @Test fun weatherDetailsDefaultUntilSaved() {
+        assertEquals(WeatherDetail.defaults, WeatherDetail.fromKeys(null))
+        assertEquals(emptySet<WeatherDetail>(), WeatherDetail.fromKeys(emptySet()))
+        assertEquals(setOf(WeatherDetail.Wind, WeatherDetail.Uv), WeatherDetail.fromKeys(setOf("wind", "uv", "bogus")))
+        assertTrue(WeatherDetail.Humidity !in WeatherDetail.defaults)
+    }
+
     @Test fun breakpointsClassifyByHeight() {
         assertEquals(WidgetSize.Compact, WidgetSize.fromHeightDp(70f))
         assertEquals(WidgetSize.Standard, WidgetSize.fromHeightDp(110f))
         assertEquals(WidgetSize.Tall, WidgetSize.fromHeightDp(180f))
+        assertEquals(WidgetSize.Large, WidgetSize.fromHeightDp(250f))
     }
 
-    @Test fun limitsClampAndSnap() {
-        assertEquals(listOf(16, 20, 24, 28, 32, 36), Limits.RADII)
-        assertEquals(28, Limits.snapRadius(27))
-        assertEquals(16, Limits.snapRadius(-5))
-        assertEquals(36, Limits.snapRadius(99))
+    @Test fun unitsAndClamps() {
+        assertEquals("15 km/h", formatWind(14.6, imperial = false))
+        assertEquals("9 mph", formatWind(14.6, imperial = true))
+        assertEquals("UV 3", formatUv(2.5))
         assertEquals(0.8f, Limits.clampTextScale(0.1f), 0f)
         assertEquals(1.3f, Limits.clampTextScale(5f), 0f)
+    }
+
+    @Test fun eventsRoundTripAndCorruptIsEmpty() {
+        val e = listOf(CalendarEvent(1, "Dentist", 10, 20, false))
+        assertEquals(e, WeatherStoreCodec.decodeEvents(WeatherStoreCodec.encodeEvents(e)))
+        assertEquals(emptyList<CalendarEvent>(), WeatherStoreCodec.decodeEvents("[{oops"))
     }
 }

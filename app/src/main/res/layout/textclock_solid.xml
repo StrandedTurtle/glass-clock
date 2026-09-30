@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solid digits: the same outlines without glass layers, auto-sized to fill the box the widget gives it.
+     Formats, colour and gravity are set per render from the widget settings. -->
+<TextClock xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clockText"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:autoSizeMaxTextSize="400sp"
+    android:autoSizeMinTextSize="12sp"
+    android:autoSizeStepGranularity="1sp"
+    android:autoSizeTextType="uniform"
+    android:fontFamily="@font/solid_digits"
+    android:format12Hour="hmm"
+    android:format24Hour="HHmm"
+    android:gravity="center"
+    android:includeFontPadding="false"
+    android:maxLines="1"
+    android:textColor="#FFFFFFFF" />

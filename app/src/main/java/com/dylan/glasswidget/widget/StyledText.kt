@@ -2,69 +2,76 @@ package com.dylan.glasswidget.widget
 
 import android.content.Context
 import android.util.TypedValue
+import android.view.Gravity
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.AndroidRemoteViews
 import com.dylan.glasswidget.R
+import com.dylan.glasswidget.data.ClockStyle
 import com.dylan.glasswidget.data.DatePreset
 import com.dylan.glasswidget.data.HourMode
+import com.dylan.glasswidget.data.WidgetAlignment
 
 /**
- * All widget text is a plain Android TextView/TextClock wrapped in Glance's AndroidRemoteViews, because
- * Glance's own Text can't set a font. As a bonus the system keeps TextClock ticking without our process.
+ * All widget text is a real TextView/TextClock wrapped in Glance's AndroidRemoteViews: Glance's own
+ * Text can't take a font, and the system keeps a TextClock ticking without our process running.
  */
 
-private fun RemoteViews.style(id: Int, sizeSp: Float, palette: GlassPalette, secondary: Boolean) {
-    setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, sizeSp)
-    // Day/night pair (API 31): the launcher swaps them itself when the system theme changes.
-    setColorInt(
-        id, "setTextColor",
-        if (secondary) palette.secondaryDay else palette.textDay,
-        if (secondary) palette.secondaryNight else palette.textNight,
-    )
+private fun RemoteViews.color(id: Int, day: Int, night: Int) {
+    // Day/night pair (API 31+): the launcher swaps them itself when the system theme changes.
+    setColorInt(id, "setTextColor", day, night)
 }
 
+/** 12h/24h patterns with or without the colon; HyperOS's lockscreen clock has none. */
+internal fun clockFormats(hourMode: HourMode, colon: Boolean): Pair<String, String> {
+    val sep = if (colon) ":" else ""
+    val h12 = "h${sep}mm"
+    val h24 = "HH${sep}mm"
+    return when (hourMode) {
+        HourMode.System -> h12 to h24
+        HourMode.H12 -> h12 to h12
+        HourMode.H24 -> h24 to h24
+    }
+}
+
+/** The big glass digits. They auto-size to fill [modifier]'s box, so give it a fixed height. */
 @Composable
-fun ClockText(
+fun GlassDigits(
     context: Context,
+    style: ClockStyle,
     hourMode: HourMode,
-    sizeSp: Float,
+    colon: Boolean,
+    alignment: WidgetAlignment,
     palette: GlassPalette,
-    modifier: GlanceModifier = GlanceModifier,
+    modifier: GlanceModifier,
 ) {
-    val views = RemoteViews(context.packageName, R.layout.textclock_time).apply {
-        when (hourMode) {
-            HourMode.System -> Unit // layout's own 12h/24h formats follow the phone setting
-            HourMode.H12 -> {
-                setCharSequence(R.id.clockText, "setFormat12Hour", "h:mm")
-                setCharSequence(R.id.clockText, "setFormat24Hour", "h:mm")
-            }
-            HourMode.H24 -> {
-                setCharSequence(R.id.clockText, "setFormat12Hour", "HH:mm")
-                setCharSequence(R.id.clockText, "setFormat24Hour", "HH:mm")
-            }
-        }
-        style(R.id.clockText, sizeSp, palette, secondary = false)
+    val layout = if (style == ClockStyle.Glass) R.layout.textclock_glass else R.layout.textclock_solid
+    val (f12, f24) = clockFormats(hourMode, colon)
+    val views = RemoteViews(context.packageName, layout).apply {
+        setCharSequence(R.id.clockText, "setFormat12Hour", f12)
+        setCharSequence(R.id.clockText, "setFormat24Hour", f24)
+        setInt(
+            R.id.clockText, "setGravity",
+            if (alignment == WidgetAlignment.Center) Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL,
+        )
+        color(R.id.clockText, palette.digitDay, palette.digitNight)
     }
     AndroidRemoteViews(views, modifier)
 }
 
 @Composable
-fun DateText(
-    context: Context,
-    preset: DatePreset,
-    sizeSp: Float,
-    palette: GlassPalette,
-    modifier: GlanceModifier = GlanceModifier,
-) {
+fun DateText(context: Context, preset: DatePreset, sizeSp: Float, palette: GlassPalette) {
     val views = RemoteViews(context.packageName, R.layout.textclock_date).apply {
         setCharSequence(R.id.dateText, "setFormat12Hour", preset.pattern)
         setCharSequence(R.id.dateText, "setFormat24Hour", preset.pattern)
-        style(R.id.dateText, sizeSp, palette, secondary = true)
+        setTextViewTextSize(R.id.dateText, TypedValue.COMPLEX_UNIT_SP, sizeSp)
+        color(R.id.dateText, palette.textDay, palette.textNight)
     }
-    AndroidRemoteViews(views, modifier)
+    AndroidRemoteViews(views)
 }
+
+enum class LabelStyle { Normal, Secondary, Emphasis, OnWallpaper }
 
 @Composable
 fun LabelText(
@@ -72,12 +79,18 @@ fun LabelText(
     text: String,
     sizeSp: Float,
     palette: GlassPalette,
-    secondary: Boolean = false,
-    modifier: GlanceModifier = GlanceModifier,
+    style: LabelStyle = LabelStyle.Normal,
 ) {
-    val views = RemoteViews(context.packageName, R.layout.label_text).apply {
-        setTextViewText(R.id.labelText, text)
-        style(R.id.labelText, sizeSp, palette, secondary)
+    val layout = when (style) {
+        LabelStyle.Emphasis -> R.layout.label_text_medium
+        LabelStyle.OnWallpaper -> if (palette.lightText) R.layout.label_text_shadow else R.layout.label_text
+        else -> R.layout.label_text
     }
-    AndroidRemoteViews(views, modifier)
+    val views = RemoteViews(context.packageName, layout).apply {
+        setTextViewText(R.id.labelText, text)
+        setTextViewTextSize(R.id.labelText, TypedValue.COMPLEX_UNIT_SP, sizeSp)
+        if (style == LabelStyle.Secondary) color(R.id.labelText, palette.secondaryDay, palette.secondaryNight)
+        else color(R.id.labelText, palette.textDay, palette.textNight)
+    }
+    AndroidRemoteViews(views)
 }

@@ -9,16 +9,14 @@ import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.layout.Alignment
-import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
 import androidx.glance.layout.size
-import androidx.glance.layout.width
 import com.dylan.glasswidget.R
-import com.dylan.glasswidget.data.TempUnit
 import com.dylan.glasswidget.data.WeatherCondition
+import com.dylan.glasswidget.data.WeatherDetail
 import com.dylan.glasswidget.data.WeatherSnapshot
 import com.dylan.glasswidget.data.formatTemp
+import com.dylan.glasswidget.data.formatUv
+import com.dylan.glasswidget.data.formatWind
 
 @DrawableRes
 fun WeatherCondition.iconRes(): Int = when (this) {
@@ -49,31 +47,48 @@ fun WeatherCondition.labelRes(): Int = when (this) {
 
 fun WeatherSnapshot.condition(): WeatherCondition = WeatherCondition.from(weatherCode, isDay)
 
-/** Icon + current temperature on one line. A null [weather] shows [placeholder] until the first fetch lands. */
-@Composable
-fun WeatherRow(
-    context: Context,
-    weather: WeatherSnapshot?,
-    unit: TempUnit,
-    iconDp: Int,
-    textSp: Float,
-    palette: GlassPalette,
-    placeholder: String,
-) {
-    val f = unit == TempUnit.F
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Image(
-            provider = ImageProvider((weather?.condition() ?: WeatherCondition.Unknown).iconRes()),
-            contentDescription = weather?.let { context.getString(it.condition().labelRes()) },
-            colorFilter = ColorFilter.tint(palette.text),
-            modifier = GlanceModifier.size(iconDp.dp),
-        )
-        Spacer(GlanceModifier.width(5.dp))
-        LabelText(
-            context = context,
-            text = weather?.let { formatTemp(it.tempC, f) } ?: placeholder,
-            sizeSp = textSp,
-            palette = palette,
-        )
+data class DetailItem(@DrawableRes val icon: Int, val text: String)
+
+/** The chosen extras that have data, in a fixed order, for the details pill. */
+fun detailItems(context: Context, w: WeatherSnapshot, s: WidgetSettings): List<DetailItem> = buildList {
+    val f = s.fahrenheit
+    for (d in WeatherDetail.entries) {
+        if (d !in s.details) continue
+        when (d) {
+            WeatherDetail.FeelsLike -> w.feelsLikeC?.let {
+                add(DetailItem(R.drawable.ic_d_feels, context.getString(R.string.feels_like, formatTemp(it, f))))
+            }
+            WeatherDetail.RainChance -> w.precipChancePct?.let {
+                add(DetailItem(R.drawable.ic_d_rain, context.getString(R.string.percent, it)))
+            }
+            WeatherDetail.Wind -> w.windKmh?.let { add(DetailItem(R.drawable.ic_d_wind, formatWind(it, f))) }
+            WeatherDetail.Humidity -> w.humidityPct?.let {
+                add(DetailItem(R.drawable.ic_d_humidity, context.getString(R.string.percent, it)))
+            }
+            WeatherDetail.Uv -> w.uvIndexMax?.let { add(DetailItem(R.drawable.ic_d_uv, formatUv(it))) }
+            WeatherDetail.AirQuality -> (if (f) w.usAqi else w.europeanAqi)?.let {
+                add(DetailItem(R.drawable.ic_d_air, context.getString(R.string.aqi, it)))
+            }
+            else -> Unit // condition, high/low and sun times live elsewhere
+        }
     }
+}
+
+/** "Cloudy · ↑17° ↓9°" — whichever of the two in-pill extras are switched on. */
+fun pillExtras(context: Context, w: WeatherSnapshot, s: WidgetSettings, roomForCondition: Boolean): String =
+    listOfNotNull(
+        if (WeatherDetail.Condition in s.details && roomForCondition) context.getString(w.condition().labelRes()) else null,
+        if (WeatherDetail.HighLow in s.details)
+            context.getString(R.string.high_low, formatTemp(w.tempMaxC, s.fahrenheit), formatTemp(w.tempMinC, s.fahrenheit))
+        else null,
+    ).joinToString(" · ")
+
+@Composable
+fun GlassIcon(@DrawableRes res: Int, sizeDp: Int, palette: GlassPalette, description: String? = null) {
+    Image(
+        provider = ImageProvider(res),
+        contentDescription = description,
+        colorFilter = ColorFilter.tint(palette.icon),
+        modifier = GlanceModifier.size(sizeDp.dp),
+    )
 }

@@ -2,6 +2,7 @@ package com.dylan.glasswidget.data
 
 /** Persisted option values. Each enum round-trips through a stable string [key] and falls back to a default. */
 
+/** Glass strength: Soft is denser frost, Clear lets more wallpaper through. */
 enum class GlassVariant(val key: String) {
     Clear("clear"), Soft("soft");
 
@@ -10,19 +11,28 @@ enum class GlassVariant(val key: String) {
     }
 }
 
-enum class PaddingMode(val key: String, val factor: Float) {
-    Tight("tight", 0.6f), Normal("normal", 1f), Roomy("roomy", 1.4f);
+/** Colour of the glass and text. Ink is light glass with dark text, for bright wallpapers. */
+enum class TintMode(val key: String) {
+    Frost("frost"), Smoke("smoke"), Ink("ink"), Dynamic("dynamic");
 
     companion object {
-        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Normal
+        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Frost
     }
 }
 
-enum class TintMode(val key: String) {
-    Dynamic("dynamic"), Light("light"), Dark("dark");
+enum class ClockStyle(val key: String) {
+    Glass("glass"), Solid("solid");
 
     companion object {
-        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Dynamic
+        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Glass
+    }
+}
+
+enum class WidgetAlignment(val key: String) {
+    Center("center"), Start("start");
+
+    companion object {
+        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Center
     }
 }
 
@@ -63,13 +73,35 @@ enum class DatePreset(val key: String, val pattern: String) {
     }
 }
 
-/** The three responsive breakpoints (§9). */
-enum class WidgetSize {
-    Compact, Standard, Tall;
+/** Optional weather bits. [inPill] ones sit next to the temperature; the rest go in the details pill. */
+enum class WeatherDetail(val key: String, val inPill: Boolean, val onByDefault: Boolean) {
+    Condition("condition", true, true),
+    HighLow("high_low", true, true),
+    SunTimes("sun", false, true),
+    FeelsLike("feels", false, true),
+    RainChance("rain", false, true),
+    Wind("wind", false, true),
+    Humidity("humidity", false, false),
+    Uv("uv", false, false),
+    AirQuality("aqi", false, true);
 
     companion object {
-        // Breakpoints are 70 / 110 / 180 dp tall; thresholds sit between them.
+        val defaults: Set<WeatherDetail> = entries.filter { it.onByDefault }.toSet()
+
+        /** null (never set) = defaults; otherwise exactly what was saved, unknown keys ignored. */
+        fun fromKeys(keys: Set<String>?): Set<WeatherDetail> =
+            keys?.let { saved -> entries.filter { it.key in saved }.toSet() } ?: defaults
+    }
+}
+
+/** The four responsive breakpoints. */
+enum class WidgetSize {
+    Compact, Standard, Tall, Large;
+
+    companion object {
+        // Breakpoints are 70 / 110 / 180 / 250 dp tall; thresholds sit between them.
         fun fromHeightDp(heightDp: Float): WidgetSize = when {
+            heightDp >= 215f -> Large
             heightDp >= 145f -> Tall
             heightDp >= 90f -> Standard
             else -> Compact
@@ -80,15 +112,6 @@ enum class WidgetSize {
 object Limits {
     const val TEXT_SCALE_MIN = 0.8f
     const val TEXT_SCALE_MAX = 1.3f
-    const val RADIUS_MIN = 16
-    const val RADIUS_MAX = 36
-    const val RADIUS_STEP = 4
-    const val DEFAULT_RADIUS = 28
-
-    /** Radii come in fixed steps because each one has its own glass-edge drawable. */
-    val RADII: List<Int> = (RADIUS_MIN..RADIUS_MAX step RADIUS_STEP).toList()
 
     fun clampTextScale(v: Float) = v.coerceIn(TEXT_SCALE_MIN, TEXT_SCALE_MAX)
-
-    fun snapRadius(dp: Int): Int = RADII.minByOrNull { kotlin.math.abs(it - dp) } ?: DEFAULT_RADIUS
 }

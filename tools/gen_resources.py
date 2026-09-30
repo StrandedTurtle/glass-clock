@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates the weather icon vectors and glass-edge drawables under app/src/main/res/drawable.
+"""Regenerates the weather/detail icon vectors and glass pill drawables under app/src/main/res/drawable.
 
 Icon geometry is from Lucide (https://lucide.dev, ISC licence), drawn as 24dp stroked vectors so the
 widget can tint them with its text colour. Run from the repo root:  python3 tools/gen_resources.py
@@ -32,6 +32,21 @@ ICONS = {
     "ic_wx_rain": [CLOUD_TOP, "M16 14v6", "M8 14v6", "M12 16v6"],
     "ic_wx_snow": [CLOUD_TOP, "M8 15h.01", "M8 19h.01", "M12 17h.01", "M12 21h.01", "M16 15h.01", "M16 19h.01"],
     "ic_wx_storm": ["M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973", "m13 12-3 5h4l-3 5"],
+    # detail icons
+    "ic_d_rain": ["M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"],
+    "ic_d_wind": ["M12.8 19.6A2 2 0 1 0 14 16H2", "M17.5 8a2.5 2.5 0 1 1 2 4H2", "M9.8 4.4A2 2 0 1 1 11 8H2"],
+    "ic_d_humidity": ["M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z",
+                      "M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"],
+    "ic_d_uv": ["M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z", "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41",
+                "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
+    "ic_d_air": ["M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z",
+                 "M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"],
+    "ic_d_feels": ["M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"],
+    "ic_d_sunrise": ["M12 2v8", "m4.93 10.93 1.41 1.41", "M2 18h2", "M20 18h2", "m19.07 10.93-1.41 1.41",
+                     "M22 22H2", "m8 6 4-4 4 4", "M16 18a4 4 0 0 0-8 0"],
+    "ic_d_sunset": ["M12 10V2", "m4.93 10.93 1.41 1.41", "M2 18h2", "M20 18h2", "m19.07 10.93-1.41 1.41",
+                    "M22 22H2", "m16 6-4 4-4-4", "M16 18a4 4 0 0 0-8 0"],
+    "ic_d_event": ["M8 2v4", "M16 2v4", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M3 10h18"],
 }
 
 def vector(paths):
@@ -45,25 +60,34 @@ def vector(paths):
             '    android:width="24dp"\n    android:height="24dp"\n'
             '    android:viewportWidth="24"\n    android:viewportHeight="24">\n' + body + '\n</vector>\n')
 
-# Glass edge: a faint top-left sheen plus a hairline stroke, at each supported corner radius.
-VARIANTS = {"clear": ("#2EFFFFFF", "#70FFFFFF"), "soft": ("#1AFFFFFF", "#45FFFFFF")}
-RADII = range(16, 37, 4)
+# Glass pills: a 999dp radius is clamped to half the height, so one drawable is a perfect pill at any
+# size. Top-to-bottom sheen + hairline rim. (top fill, bottom fill, rim) per tint and glass strength.
+PILLS = {
+    ("frost", "soft"): ("#4DFFFFFF", "#2EFFFFFF", "#6BFFFFFF"),
+    ("frost", "clear"): ("#38FFFFFF", "#1FFFFFFF", "#57FFFFFF"),
+    ("smoke", "soft"): ("#66101214", "#52101214", "#38FFFFFF"),
+    ("smoke", "clear"): ("#4D101214", "#3D101214", "#2EFFFFFF"),
+    ("ink", "soft"): ("#9EFFFFFF", "#80FFFFFF", "#B3FFFFFF"),
+    ("ink", "clear"): ("#80FFFFFF", "#61FFFFFF", "#99FFFFFF"),
+    # Material You: colours come from res/color(-night)/pill_dynamic_*.xml (system accent palette)
+    ("dynamic", "soft"): ("@color/pill_dynamic_top_soft", "@color/pill_dynamic_bottom_soft", "#57FFFFFF"),
+    ("dynamic", "clear"): ("@color/pill_dynamic_top_clear", "@color/pill_dynamic_bottom_clear", "#47FFFFFF"),
+}
 
-def ring(radius, sheen, stroke):
+def pill(top, bottom, rim):
     return ('<?xml version="1.0" encoding="utf-8"?>\n'
             '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-            f'    <corners android:radius="{radius}dp" />\n'
-            f'    <gradient android:type="linear" android:angle="315" android:startColor="{sheen}" android:endColor="#00FFFFFF" />\n'
-            f'    <stroke android:width="1dp" android:color="{stroke}" />\n'
+            '    <corners android:radius="999dp" />\n'
+            f'    <gradient android:type="linear" android:angle="270" android:startColor="{top}" android:endColor="{bottom}" />\n'
+            f'    <stroke android:width="1dp" android:color="{rim}" />\n'
             '</shape>\n')
 
 def main():
     RES.mkdir(parents=True, exist_ok=True)
     for name, paths in ICONS.items():
         (RES / f"{name}.xml").write_text(vector(paths))
-    for v, (sheen, stroke) in VARIANTS.items():
-        for r in RADII:
-            (RES / f"glass_edge_{v}_{r}.xml").write_text(ring(r, sheen, stroke))
+    for (tint, variant), colours in PILLS.items():
+        (RES / f"pill_{tint}_{variant}.xml").write_text(pill(*colours))
     if "--sheet" in sys.argv:
         out = pathlib.Path(sys.argv[sys.argv.index("--sheet") + 1])
         def svg(paths):

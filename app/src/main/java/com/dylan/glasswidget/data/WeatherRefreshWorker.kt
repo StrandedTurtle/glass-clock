@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -60,8 +59,9 @@ class WeatherRefreshWorker(appContext: Context, params: WorkerParameters) :
                 .onFailure { failures++ }
         }
 
-        WeatherCache.save(ctx, fresh)
-        GlassClockWidget().updateAll(ctx)
+        WidgetDataStore.saveWeather(ctx, fresh)
+        // Also refreshes events, redraws every widget and schedules the next boundary redraw.
+        CalendarRefreshWorker.refreshAndRedraw(ctx)
 
         // Back off and retry a few times on failure; after that wait for the next periodic run.
         return if (failures > 0 && fresh.isEmpty() && runAttemptCount < 4) Result.retry() else Result.success()

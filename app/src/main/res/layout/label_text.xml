@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Plain label in the widget font (temperature, condition, high/low, city). -->
+<!-- Plain label in the system font (MiSans on HyperOS, matching the lockscreen). -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/labelText"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:fontFamily="@font/quicksand_medium"
+    android:ellipsize="end"
+    android:fontFamily="sans-serif"
     android:includeFontPadding="false"
     android:singleLine="true"
     android:textColor="#FFFFFFFF"
-    android:textSize="14sp" />
+    android:textSize="13sp" />

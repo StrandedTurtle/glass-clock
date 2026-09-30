@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Label drawn straight on the wallpaper (the line above the clock); a soft shadow keeps it legible. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/labelText"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:ellipsize="end"
+    android:fontFamily="sans-serif"
+    android:includeFontPadding="false"
+    android:shadowColor="#59000000"
+    android:shadowDy="1"
+    android:shadowRadius="4"
+    android:singleLine="true"
+    android:textColor="#FFFFFFFF"
+    android:textSize="13sp" />

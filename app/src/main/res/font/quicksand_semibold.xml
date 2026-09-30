@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Quicksand (SIL OFL 1.1) is a variable font; pin the weight used for the clock digits. -->
-<font-family xmlns:android="http://schemas.android.com/apk/res/android">
-    <font
-        android:font="@font/quicksand"
-        android:fontStyle="normal"
-        android:fontVariationSettings="'wght' 600"
-        android:fontWeight="600" />
-</font-family>
