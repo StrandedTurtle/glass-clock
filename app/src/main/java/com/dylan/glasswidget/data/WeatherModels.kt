@@ -23,6 +23,7 @@ data class HourlyBlock(
     @SerialName("weather_code") val weatherCode: List<Int?> = emptyList(),
     @SerialName("is_day") val isDay: List<Int?> = emptyList(),
     val precipitation: List<Double?> = emptyList(), // mm in the hour
+    @SerialName("uv_index") val uvIndex: List<Double?> = emptyList(),
 )
 
 @Serializable
@@ -101,7 +102,14 @@ data class SunEvent(val atEpochMs: Long, val sunrise: Boolean)
 
 /** One hour of forecast, for the hourly strip. */
 @Serializable
-data class HourForecast(val atEpochMs: Long, val tempC: Double, val weatherCode: Int, val isDay: Boolean, val precipChancePct: Int? = null)
+data class HourForecast(
+    val atEpochMs: Long,
+    val tempC: Double,
+    val weatherCode: Int,
+    val isDay: Boolean,
+    val precipChancePct: Int? = null,
+    val uvIndex: Double? = null,
+)
 
 /** Rain amount in one short slot (15 minutes, or an hour when finer data isn't there). */
 @Serializable
@@ -132,6 +140,8 @@ data class WeatherSnapshot(
     val windKmh: Double? = null,
     val precipChancePct: Int? = null,
     val uvIndexMax: Double? = null,
+    /** UV index for the hour in progress. */
+    val uvNow: Double? = null,
     val europeanAqi: Int? = null,
     val usAqi: Int? = null,
     /** Today's and tomorrow's sunrise/sunset, oldest first. */

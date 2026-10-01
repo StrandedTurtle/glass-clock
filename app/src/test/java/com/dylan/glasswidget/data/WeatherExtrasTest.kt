@@ -129,6 +129,69 @@ class WeatherExtrasTest {
         assertTrue(SmartLine.pick(emptyList(), 40).isEmpty())
     }
 
+    // ---- smart line: charging, health, frost, golden hour ----
+
+    private fun snap(
+        hourly: List<HourForecast> = emptyList(),
+        uvNow: Double? = null,
+        aqi: Int? = null,
+        pollen: List<PollenReading> = emptyList(),
+        sun: List<SunEvent> = emptyList(),
+    ) = WeatherSnapshot(
+        tempC = 10.0, weatherCode = 0, tempMaxC = 12.0, tempMinC = 2.0, fetchedAtEpochMs = 0,
+        hourly = hourly, uvNow = uvNow, europeanAqi = aqi, pollen = pollen, sunEvents = sun,
+    )
+
+    @Test fun chargingCountdownToFullOrEighty() {
+        val c = SmartLine.Charging(levelPct = 40, fullInMs = 100 * 60_000L)
+        assertEquals("Full in 1 h 40 min", SmartLine.chargeText(c, SmartLine.ChargeTarget.Full, labels))
+        // 40 of the 60 points left, 80% of that share for the faster first stretch: 100 * 2/3 * 0.8 = 54 min
+        assertEquals("80% in 54 min", SmartLine.chargeText(c, SmartLine.ChargeTarget.Eighty, labels))
+        assertNull(SmartLine.chargeText(c.copy(levelPct = 85), SmartLine.ChargeTarget.Eighty, labels))
+        assertNull(SmartLine.chargeText(c.copy(fullInMs = null), SmartLine.ChargeTarget.Full, labels))
+        assertNull(SmartLine.chargeText(c, SmartLine.ChargeTarget.Off, labels))
+    }
+
+    @Test fun healthAlertsOnlyWhenBad() {
+        val now = at("2026-07-01T11:30:00Z") // 12:30 local
+        fun hour(iso: String, uv: Double) = HourForecast(at(iso), 20.0, 0, true, uvIndex = uv)
+        val hours = listOf(hour("2026-07-01T12:00:00Z", 7.0), hour("2026-07-01T13:00:00Z", 6.2), hour("2026-07-01T14:00:00Z", 5.0))
+        val sources = all.copy(health = true)
+        val bad = SmartLine.items(now, zone, true, null, null, null, emptyList(), sources, labels,
+            weather = snap(hours, uvNow = 6.8, aqi = 72, pollen = listOf(PollenReading(PollenType.Grass, 80.0))))
+        assertEquals(
+            listOf("High UV (7) until 15:00", "Poor air quality (72)", "High Grass pollen"),
+            bad.map { it.text },
+        )
+        val fine = SmartLine.items(now, zone, true, null, null, null, emptyList(), sources, labels,
+            weather = snap(hours.map { it.copy(uvIndex = 3.0) }, uvNow = 3.0, aqi = 30, pollen = listOf(PollenReading(PollenType.Grass, 35.0))))
+        assertTrue(fine.isEmpty())
+        // UV that turns high within two hours is flagged ahead
+        assertEquals("High UV (7) from 13:00", SmartLine.uvText(snap(hours, uvNow = 4.0), now, labels) { WidgetText.clock(it, zone, true) })
+    }
+
+    @Test fun frostAndGoldenHour() {
+        fun night(iso: String, t: Double) = HourForecast(at(iso), t, 0, false)
+        assertEquals(-1.0, SmartLine.frostLow(snap(listOf(night("2026-11-01T02:00:00Z", 2.0), night("2026-11-01T05:00:00Z", -1.0))))!!, 0.0)
+        assertNull(SmartLine.frostLow(snap(listOf(night("2026-11-01T02:00:00Z", 3.0)))))
+
+        val clock = { ms: Long -> WidgetText.clock(ms, zone, true) }
+        val sun = listOf(SunEvent(at("2026-10-01T06:00:00Z"), true), SunEvent(at("2026-10-01T17:45:00Z"), false))
+        assertEquals("Golden hour · sunset 18:45", SmartLine.goldenText(sun, at("2026-10-01T17:00:00Z"), labels, clock))
+        assertEquals("Golden hour until 8:00", SmartLine.goldenText(sun, at("2026-10-01T06:20:00Z"), labels, clock))
+        assertNull(SmartLine.goldenText(sun, at("2026-10-01T12:00:00Z"), labels, clock))
+    }
+
+    @Test fun weatherItemOrderKeepsSavedOrderAndAddsNewItems() {
+        val order = WeatherDetail.order("moon,rain,bogus,rain")
+        assertEquals(listOf(WeatherDetail.Moon, WeatherDetail.RainChance), order.take(2))
+        assertEquals(WeatherDetail.cardItems.toSet(), order.toSet())
+        assertEquals(WeatherDetail.cardItems.size, order.size)
+        assertTrue(WeatherDetail.Hourly !in order)
+        assertEquals(WeatherDetail.cardItems, WeatherDetail.order(null))
+        assertEquals(order, WeatherDetail.order(WeatherDetail.encodeOrder(order)))
+    }
+
     // ---- forecast parsing ----
 
     @Test fun parsesHourlyRainSlotsAndTomorrow() {

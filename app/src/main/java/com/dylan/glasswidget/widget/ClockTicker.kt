@@ -11,6 +11,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.dylan.glasswidget.data.CalendarRefreshWorker
+import com.dylan.glasswidget.data.SmartLine
 import com.dylan.glasswidget.data.WidgetDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,9 @@ object ClockTicker {
     suspend fun tick(context: Context) {
         val app = context.applicationContext
         val widgets = placedSettings(app)
-        if (widgets.any { it.clockStyle.usesImages }) {
+        // Solid clocks tick by themselves, but a charging countdown on one still needs the minute redraw.
+        val charging = widgets.any { it.smartCharge != SmartLine.ChargeTarget.Off } && Battery.charging(app) != null
+        if (widgets.any { it.clockStyle.usesImages } || charging) {
             _minute.value = currentMinute()
             GlassClockWidget().updateAll(app)
             scheduleNext(app)

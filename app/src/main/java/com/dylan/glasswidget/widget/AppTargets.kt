@@ -42,6 +42,12 @@ object AppTargets {
         return pkg?.takeIf { it != "android" }
     }
 
+    /** Battery usage screen, for the charging countdown; null if the phone has none. */
+    fun batteryIntent(context: Context): Intent? {
+        val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return intent.takeIf { runCatching { context.packageManager.resolveActivity(it, 0) }.getOrNull() != null }
+    }
+
     /** Opens the settings screen for one widget (used by the weather zone until a city is set). */
     fun configIntent(context: Context, appWidgetId: Int): Intent =
         Intent(context, ConfigActivity::class.java)

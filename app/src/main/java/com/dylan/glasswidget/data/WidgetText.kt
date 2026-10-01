@@ -33,6 +33,9 @@ object WidgetText {
      * With [firstRowUsed], the first row already holds content that wide (the date and temperature),
      * items join it while they fit (up to [firstRowMax] of them), and the result always starts with
      * that first row, even if it stays empty.
+     *
+     * Order is kept: once [maxRows] are full, the item that doesn't fit and everything after it is left
+     * out (so the list order is also the priority order). An item wider than a whole row is skipped.
      */
     fun packRows(
         widths: List<Float>,
@@ -41,6 +44,7 @@ object WidgetText {
         perRow: Int = 5,
         firstRowUsed: Float? = null,
         firstRowMax: Int = perRow,
+        maxRows: Int = Int.MAX_VALUE,
     ): List<List<Int>> {
         val rows = mutableListOf<MutableList<Int>>()
         var used = 0f
@@ -50,13 +54,15 @@ object WidgetText {
             used = firstRowUsed
             cap = firstRowMax
         }
-        widths.forEachIndexed { i, w ->
+        for ((i, w) in widths.withIndex()) {
+            if (w > maxWidth) continue
             val row = rows.lastOrNull()
             val extra = if (row.isNullOrEmpty() && firstRowUsed == null) w else gap + w
             if (row != null && row.size < cap && used + extra <= maxWidth && !(row.isEmpty() && rows.size > 1)) {
                 row += i
                 used += extra
             } else {
+                if (rows.size >= maxRows) break
                 rows += mutableListOf(i)
                 used = w
                 cap = perRow

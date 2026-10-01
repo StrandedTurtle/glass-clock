@@ -4,6 +4,8 @@ import androidx.datastore.preferences.core.Preferences
 import com.dylan.glasswidget.data.CalendarEvent
 import com.dylan.glasswidget.data.ClockFace
 import com.dylan.glasswidget.data.CalendarLink
+import com.dylan.glasswidget.data.CardLines
+import com.dylan.glasswidget.data.SmartLine
 import com.dylan.glasswidget.data.ClockStyle
 import com.dylan.glasswidget.data.DatePreset
 import com.dylan.glasswidget.data.GlassVariant
@@ -33,6 +35,9 @@ data class WidgetSettings(
     val datePreset: DatePreset = DatePreset.Short,
     val tempUnit: TempUnit = TempUnit.C,
     val details: Set<WeatherDetail> = WeatherDetail.defaults,
+    /** Card items in display and priority order (switched-off ones included). */
+    val order: List<WeatherDetail> = WeatherDetail.cardItems,
+    val cardLines: CardLines = CardLines.Auto,
     val locationMode: LocationMode = LocationMode.City,
     val cityLat: Double? = null,
     val cityLon: Double? = null,
@@ -46,7 +51,14 @@ data class WidgetSettings(
     val smartRain: Boolean = true,
     val smartAlarm: Boolean = true,
     val smartWarnings: Boolean = true,
+    val smartCharge: SmartLine.ChargeTarget = SmartLine.ChargeTarget.Full,
+    val smartHealth: Boolean = true,
+    val smartSun: Boolean = true,
+    val smartFrost: Boolean = true,
 ) {
+    /** The switched-on card items, in the user's order. */
+    val shownItems: List<WeatherDetail> get() = order.filter { it in details }
+
     /** Where this widget wants weather for, or null if the user hasn't picked anywhere yet. */
     val location: Location?
         get() = when (locationMode) {
@@ -87,6 +99,8 @@ data class WidgetSettings(
                     saved + setOf(WeatherDetail.Pollen, WeatherDetail.Moon, WeatherDetail.Tomorrow, WeatherDetail.Hourly)
                 } else saved
             },
+            order = WeatherDetail.order(p[WidgetPrefsKeys.WEATHER_ORDER]),
+            cardLines = CardLines.from(p[WidgetPrefsKeys.CARD_LINES]),
             locationMode = LocationMode.from(p[WidgetPrefsKeys.LOCATION_MODE]),
             cityLat = p[WidgetPrefsKeys.CITY_LAT],
             cityLon = p[WidgetPrefsKeys.CITY_LON],
@@ -100,6 +114,10 @@ data class WidgetSettings(
             smartRain = p[WidgetPrefsKeys.SMART_RAIN] ?: true,
             smartAlarm = p[WidgetPrefsKeys.SMART_ALARM] ?: true,
             smartWarnings = p[WidgetPrefsKeys.SMART_WARNINGS] ?: true,
+            smartCharge = SmartLine.ChargeTarget.from(p[WidgetPrefsKeys.SMART_CHARGE]),
+            smartHealth = p[WidgetPrefsKeys.SMART_HEALTH] ?: true,
+            smartSun = p[WidgetPrefsKeys.SMART_SUN] ?: true,
+            smartFrost = p[WidgetPrefsKeys.SMART_FROST] ?: true,
         )
     }
 }

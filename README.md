@@ -9,12 +9,18 @@ Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use 
   HyperOS look, from Anton), Rounded (Nunito), Geometric (Outfit), Serif (DM Serif Display), Mono
   (JetBrains Mono) and Tall (Bebas Neue). Launchers ignore custom fonts in widgets, so the digits are
   images, redrawn each minute by an exact, non-waking alarm. Solid style is a system-font `TextClock`.
-- **One glass card**: date | weather icon and temperature, then condition, high/low, sunrise/sunset,
-  feels like, rain chance, wind, humidity, UV and air quality, wrapping onto extra lines inside the same
-  glass; plus pollen, moon phase, tomorrow's summary and an **hourly strip**.
-- **Smart line above the clock** (like the lockscreen's top line): up to two of Met Office weather
-  warnings, an event starting soon with a countdown (tap opens Maps if it has a location), rain starting
-  or easing in the next 2 hours (15-minute forecasts), your next alarm, or your next event.
+- **One glass card**: date | weather icon and temperature, then your chosen items (condition, high/low,
+  sunrise/sunset, feels like, rain chance, wind, humidity, UV, air quality, pollen, moon phase, tomorrow)
+  wrapping onto extra lines inside the same glass, plus an **hourly strip**. You set the items' order in
+  settings, and it doubles as their priority: text is measured in the real system font, and when the
+  card is full the items at the bottom of the list drop off a line at a time instead of being clipped.
+  Card lines can be Auto (by widget height) or fixed at 1–3.
+- **Smart line above the clock** (like the lockscreen's top line): up to two of, most important first,
+  Met Office weather warnings, an event starting soon with a countdown (tap opens Maps if it has a
+  location), rain starting or easing in the next 2 hours (15-minute forecasts), charging time to full or
+  80%, high UV / poor air / high pollen, frost tonight, golden hour, your next alarm, or your next event.
+  Only alarms set by a clock app count (calendar and reminder apps can set system alarms too); settings
+  show which alarm Android reports and who set it.
 - **Calendar sources**: calendars synced into Android (Google, Xiaomi, Samsung, Etar, DAVx⁵…) and/or
   calendar links (.ics / webcal). Proton Calendar doesn't share its events with Android, so add its
   "Share with anyone" link (calendar.proton.me → Settings → Calendars → Share with anyone → Create link).

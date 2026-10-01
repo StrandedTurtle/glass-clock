@@ -33,6 +33,8 @@ object WidgetPrefsKeys {
     val WEATHER_DETAILS = stringSetPreferencesKey("weather_details")
     // Set once the detail list has been saved with pollen/moon/tomorrow/hourly on offer.
     val WEATHER_DETAILS_REV = intPreferencesKey("weather_details_rev")
+    val WEATHER_ORDER = stringPreferencesKey("weather_order") // WeatherDetail.encodeOrder
+    val CARD_LINES = stringPreferencesKey("card_lines")
     val LOCATION_MODE = stringPreferencesKey("location_mode")
     val CITY_LAT = doublePreferencesKey("city_lat")
     val CITY_LON = doublePreferencesKey("city_lon")
@@ -51,4 +53,8 @@ object WidgetPrefsKeys {
     val SMART_RAIN = booleanPreferencesKey("smart_rain")
     val SMART_ALARM = booleanPreferencesKey("smart_alarm")
     val SMART_WARNINGS = booleanPreferencesKey("smart_warnings")
+    val SMART_CHARGE = stringPreferencesKey("smart_charge") // SmartLine.ChargeTarget
+    val SMART_HEALTH = booleanPreferencesKey("smart_health") // high UV, poor air, high pollen
+    val SMART_SUN = booleanPreferencesKey("smart_sun")       // golden hour
+    val SMART_FROST = booleanPreferencesKey("smart_frost")
 }

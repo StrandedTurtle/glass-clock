@@ -100,6 +100,29 @@ enum class WeatherDetail(val key: String, val inPill: Boolean, val onByDefault: 
         /** null (never set) = defaults; otherwise exactly what was saved, unknown keys ignored. */
         fun fromKeys(keys: Set<String>?): Set<WeatherDetail> =
             keys?.let { saved -> entries.filter { it.key in saved }.toSet() } ?: defaults
+
+        /** Items that sit in the card (everything but the hourly strip), in their default order. */
+        val cardItems: List<WeatherDetail> = entries.filter { it != Hourly }
+
+        /**
+         * The card items in the user's order ("rain,wind,..."); anything missing from the saved order
+         * (never set, or added in an update) follows in its default place.
+         */
+        fun order(csv: String?): List<WeatherDetail> {
+            val saved = csv.orEmpty().split(',').mapNotNull { k -> cardItems.firstOrNull { it.key == k } }.distinct()
+            return saved + cardItems.filter { it !in saved }
+        }
+
+        fun encodeOrder(order: List<WeatherDetail>): String = order.joinToString(",") { it.key }
+    }
+}
+
+/** How many lines the glass card may use. Auto grows with the widget's height, as space allows. */
+enum class CardLines(val key: String, val lines: Int?) {
+    Auto("auto", null), One("1", 1), Two("2", 2), Three("3", 3);
+
+    companion object {
+        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Auto
     }
 }
 

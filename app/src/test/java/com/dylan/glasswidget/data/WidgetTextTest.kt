@@ -90,11 +90,21 @@ class WidgetTextTest {
     @Test fun packRowsWrapsByWidthAndCount() {
         // 3 fit in 100 (30 + 5 + 30 + 5 + 30 = 100), the 4th wraps.
         assertEquals(listOf(listOf(0, 1, 2), listOf(3)), WidgetText.packRows(listOf(30f, 30f, 30f, 30f), 100f, 5f))
-        // An item wider than the row still gets a row of its own.
-        assertEquals(listOf(listOf(0), listOf(1)), WidgetText.packRows(listOf(150f, 10f), 100f, 5f).let { listOf(it[0], it[1]) })
+        // An item wider than the row is skipped.
+        assertEquals(listOf(listOf(1)), WidgetText.packRows(listOf(150f, 10f), 100f, 5f))
         // Count cap.
         assertEquals(listOf(listOf(0, 1), listOf(2, 3), listOf(4)), WidgetText.packRows(List(5) { 1f }, 100f, 1f, perRow = 2))
         assertEquals(emptyList<List<Int>>(), WidgetText.packRows(emptyList(), 100f, 5f))
+    }
+
+    @Test fun packRowsKeepsOrderWithinARowLimit() {
+        // the third item would need a third row: it and everything after are left out, in order
+        assertEquals(
+            listOf(listOf(0), listOf(1)),
+            WidgetText.packRows(listOf(80f, 80f, 80f, 10f), 100f, 5f, maxRows = 2),
+        )
+        // an item wider than a row can never show, so it's skipped rather than clipped
+        assertEquals(listOf(listOf(0, 2)), WidgetText.packRows(listOf(30f, 300f, 30f), 100f, 5f, maxRows = 1))
     }
 
     @Test fun packRowsCanContinueAnOccupiedFirstRow() {

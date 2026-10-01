@@ -78,11 +78,9 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
     /** Rough height of the hourly strip: hour label, icon, temperature. */
     val hourlyHeightDp: Float get() = (pillSp - 1.5f) * 1.3f + 2f + iconDp + 2f + (pillSp - 0.5f) * 1.3f
 
-    /** Rough width of text in the system font at the pill size. */
-    fun textWidthDp(text: String): Float = text.length * pillSp * 0.56f
-
-    /** Rough width of a detail item: optional icon and gap, then its text. */
-    fun itemWidthDp(item: DetailItem): Float = (if (item.icon != null) iconDp + 3f else 0f) + textWidthDp(item.text)
+    /** Width of a detail item as [DetailChip] draws it: optional icon and gap, then its text. */
+    fun itemWidthDp(item: DetailItem, widths: TextWidths): Float =
+        (if (item.icon != null) iconDp - 1f + 4f else 0f) + widths.dp(item.text, pillSp)
 
     companion object {
         fun of(size: WidgetSize, scale: Float): Metrics {
@@ -135,35 +133,42 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         else AppTargets.launchIntent(context, Zone.Weather, s.weatherApp)
 
     // ---- Share the height out: the glass card first, the digits take what's left -------------
+    val widths = TextWidths(context)
     val items = weather?.let { detailItems(context, it, s, now, zone, use24h) }.orEmpty()
     val maxLine = widthDp - PILL_PADDING_DP
     // Line 1 already holds "date | icon 14°"; details follow on it while they fit, then wrap.
     val dateText = java.text.SimpleDateFormat(s.datePreset.pattern, java.util.Locale.getDefault()).format(java.util.Date(now))
-    val firstLineUsed = m.textWidthDp(dateText) + 21f + m.iconDp + 5f +
-        m.textWidthDp(weather?.let { formatTemp(it.tempC, s.fahrenheit) } ?: context.getString(R.string.set_location))
-    val packed = WidgetText.packRows(
-        items.map { m.itemWidthDp(it) }, maxLine, ITEM_GAP_DP,
-        perRow = 5, firstRowUsed = firstLineUsed, firstRowMax = 4,
+    val tempText = weather?.let { formatTemp(it.tempC, s.fahrenheit) }
+        ?: context.getString(if (location == null) R.string.set_location else R.string.temp_placeholder)
+    val firstLineUsed = widths.dp(dateText, m.pillSp) + 21f + m.iconDp + 5f + widths.dp(tempText, m.pillSp, bold = true)
+    val itemWidths = items.map { m.itemWidthDp(it, widths) }
+    fun pack(maxRows: Int) = WidgetText.packRows(
+        itemWidths, maxLine, ITEM_GAP_DP, perRow = 5, firstRowUsed = firstLineUsed, firstRowMax = 4, maxRows = maxRows,
     )
-    // Lines the card may grow to, and whether the event pill fits, by widget height.
-    val maxLines = when (size) {
+    // Lines the card may use: the user's choice, or by widget height on Auto.
+    val autoLines = s.cardLines.lines == null
+    val maxLines = s.cardLines.lines ?: when (size) {
         WidgetSize.Compact -> 1
         WidgetSize.Standard -> 2
         WidgetSize.Tall -> 3
         WidgetSize.Large -> 4
     }
     // ---- Smart line above the clock: the most useful thing right now (like the lockscreen top line) ----
-    val alarmMs = runCatching {
-        context.getSystemService(android.app.AlarmManager::class.java)?.nextAlarmClock?.triggerTime
-    }.getOrNull()
     val smartItems = SmartLine.items(
-        now, zone, use24h, event, alarmMs,
+        now, zone, use24h, event,
+        alarmMs = if (s.smartAlarm) Alarms.nextClockAlarmMs(context) else null,
         rain = weather?.let { RainOutlook.from(it.rainSlots, now) },
         warnings = weather?.warnings.orEmpty(),
-        sources = SmartLine.Sources(events = s.showEvents, rain = s.smartRain, alarm = s.smartAlarm, warnings = s.smartWarnings),
-        labels = smartLabels(context),
+        sources = SmartLine.Sources(
+            events = s.showEvents, rain = s.smartRain, alarm = s.smartAlarm, warnings = s.smartWarnings,
+            charge = s.smartCharge, health = s.smartHealth, sun = s.smartSun, frost = s.smartFrost,
+        ),
+        labels = smartLabels(context, s.fahrenheit),
+        weather = weather,
+        charging = if (s.smartCharge != SmartLine.ChargeTarget.Off) Battery.charging(context) else null,
+        usAqi = s.fahrenheit,
     )
-    val smart = SmartLine.pick(smartItems, maxChars = (widthDp / (m.pillSp * 0.56f)).toInt())
+    val smart = pickSmart(smartItems, widthDp, m.pillSp, widths)
     var showSmart = smart.isNotEmpty() && size != WidgetSize.Compact
 
     // ---- Hourly strip inside the card ----
@@ -171,9 +176,11 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     val hours = if (WeatherDetail.Hourly in s.details) weather?.hourly.orEmpty().take(hourSlots) else emptyList()
     var showHourly = hours.size >= 3 && size != WidgetSize.Compact
 
-    // When space is short: extra weather lines give way first, then the hourly strip; the smart line
-    // only goes if the clock would get tiny.
-    var lines = packed.take(maxLines.coerceAtLeast(1))
+    // When space is short, items at the end of the user's list give way first (a whole line at a time),
+    // then the hourly strip; the smart line only goes if the clock would get tiny. A fixed line count is
+    // honoured unless the clock would shrink below a quarter of the height.
+    var rowLimit = maxLines.coerceAtLeast(1)
+    var lines = pack(rowLimit)
     val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
         val hourly = if (showHourly) m.hourlyHeightDp + LINE_GAP_DP else 0f
@@ -181,8 +188,12 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         val smartLine = if (showSmart) m.lineHeightDp + EVENT_GAP_DP else 0f
         return minOf(heightDp - card - m.gapDp - smartLine, widthDp / clockAspectWidth)
     }
-    while (lines.size > 1 && digitHeight() < heightDp * 0.4f) lines = lines.dropLast(1)
-    if (showHourly && digitHeight() < heightDp * 0.4f) showHourly = false
+    val minShare = if (autoLines) 0.4f else 0.25f
+    while (rowLimit > 1 && lines.size > 1 && digitHeight() < heightDp * minShare) {
+        rowLimit = lines.size - 1
+        lines = pack(rowLimit)
+    }
+    if (showHourly && digitHeight() < heightDp * minShare) showHourly = false
     if (showSmart && digitHeight() < heightDp * 0.3f) showSmart = false
     val digitsDp = (digitHeight() * s.clockScale).coerceAtLeast(24f)
 
@@ -234,8 +245,10 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
                     e.location?.let(CalendarRepository::mapsIntent)
                         ?: if (e.fromLink) dateIntent else CalendarRepository.viewIntent(e)
                 }
-                SmartLine.Kind.Rain, SmartLine.Kind.Warning -> weatherIntent
+                SmartLine.Kind.Rain, SmartLine.Kind.Warning, SmartLine.Kind.Health,
+                SmartLine.Kind.Frost, SmartLine.Kind.Sun -> weatherIntent
                 SmartLine.Kind.Alarm -> clockIntent
+                SmartLine.Kind.Charging -> AppTargets.batteryIntent(context)
             }
             TapZone(intent) {
                 LabelText(context, smart.joinToString(" • ") { it.text }, m.pillSp, palette, LabelStyle.OnWallpaper)
@@ -344,8 +357,20 @@ private fun HourlyStrip(
     }
 }
 
+/** Up to two smart items that fit on one line across the widget (measured, joined with " • "). */
+private fun pickSmart(items: List<SmartLine.Item>, widthDp: Float, sp: Float, widths: TextWidths): List<SmartLine.Item> {
+    val out = mutableListOf<SmartLine.Item>()
+    for (item in items) {
+        if (out.size >= 2) break
+        val candidate = (out + item).joinToString(" • ") { it.text }
+        if (out.isNotEmpty() && widths.dp(candidate, sp) > widthDp) break
+        out += item
+    }
+    return out
+}
+
 /** Smart line wording from string resources. */
-private fun smartLabels(context: Context) = SmartLine.Labels(
+private fun smartLabels(context: Context, fahrenheit: Boolean) = SmartLine.Labels(
     now = context.getString(R.string.event_now),
     today = context.getString(R.string.event_today),
     tomorrow = context.getString(R.string.event_tomorrow),
@@ -364,6 +389,22 @@ private fun smartLabels(context: Context) = SmartLine.Labels(
         )
         context.getString(R.string.smart_warning, name, hazard)
     },
+    chargeFull = { context.getString(R.string.smart_charge_full, it) },
+    chargeTo80 = { context.getString(R.string.smart_charge_80, it) },
+    duration = { m ->
+        if (m < 60) context.getString(R.string.duration_min, m)
+        else context.getString(R.string.duration_h_min, m / 60, m % 60)
+    },
+    uvHighUntil = { uv, t -> context.getString(R.string.smart_uv_until, uv, t) },
+    uvHighFrom = { uv, t -> context.getString(R.string.smart_uv_from, uv, t) },
+    airPoor = { context.getString(R.string.smart_air_poor, it) },
+    pollenHigh = { type, level ->
+        context.getString(R.string.smart_pollen_high, context.getString(level.shortLabelRes()), context.getString(type.labelRes()).lowercase())
+    },
+    goldenEvening = { context.getString(R.string.smart_golden_evening, it) },
+    goldenMorning = { context.getString(R.string.smart_golden_morning, it) },
+    frost = { context.getString(R.string.smart_frost, it) },
+    temp = { formatTemp(it, fahrenheit) },
 )
 
 /** Weather icon + "14°", or a prompt until the first fetch / until a city is set. */

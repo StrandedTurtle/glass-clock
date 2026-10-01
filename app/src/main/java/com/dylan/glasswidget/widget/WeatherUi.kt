@@ -57,7 +57,7 @@ fun WeatherSnapshot.condition(): WeatherCondition = WeatherCondition.from(weathe
 /** One bit of weather in the pill. [icon] null = text only (condition, high/low). */
 data class DetailItem(@DrawableRes val icon: Int?, val text: String)
 
-/** The chosen extras that have data, in a fixed order, for the detail pills. */
+/** The switched-on card items that have data, in the user's order. */
 fun detailItems(
     context: Context,
     w: WeatherSnapshot,
@@ -65,52 +65,51 @@ fun detailItems(
     nowMs: Long,
     zone: ZoneId,
     use24h: Boolean,
-): List<DetailItem> = buildList {
-    val f = s.fahrenheit
-    for (d in WeatherDetail.entries) {
-        if (d !in s.details) continue
-        when (d) {
-            WeatherDetail.Condition -> add(DetailItem(null, context.getString(w.condition().labelRes())))
-            WeatherDetail.HighLow -> add(DetailItem(
-                null,
-                context.getString(R.string.high_low, formatTemp(w.tempMaxC, f), formatTemp(w.tempMinC, f)),
-            ))
-            WeatherDetail.SunTimes -> WidgetText.nextSunEvent(w.sunEvents, nowMs)?.let { sun ->
-                add(DetailItem(
-                    if (sun.sunrise) R.drawable.ic_d_sunrise else R.drawable.ic_d_sunset,
-                    WidgetText.clock(sun.atEpochMs, zone, use24h),
-                ))
-            }
-            WeatherDetail.FeelsLike -> w.feelsLikeC?.let {
-                add(DetailItem(R.drawable.ic_d_feels, context.getString(R.string.feels_like, formatTemp(it, f))))
-            }
-            WeatherDetail.RainChance -> w.precipChancePct?.let {
-                add(DetailItem(R.drawable.ic_d_rain, context.getString(R.string.percent, it)))
-            }
-            WeatherDetail.Wind -> w.windKmh?.let { add(DetailItem(R.drawable.ic_d_wind, formatWind(it, f))) }
-            WeatherDetail.Humidity -> w.humidityPct?.let {
-                add(DetailItem(R.drawable.ic_d_humidity, context.getString(R.string.percent, it)))
-            }
-            WeatherDetail.Uv -> w.uvIndexMax?.let { add(DetailItem(R.drawable.ic_d_uv, formatUv(it))) }
-            WeatherDetail.AirQuality -> (if (f) w.usAqi else w.europeanAqi)?.let {
-                add(DetailItem(R.drawable.ic_d_air, context.getString(R.string.aqi, it)))
-            }
-            WeatherDetail.Pollen -> Pollen.worst(w.pollen)?.let { (reading, level) ->
-                // "Pollen low" when it's low; otherwise name the culprit: "Grass high".
-                val text = if (level == PollenLevel.Low) context.getString(R.string.pollen_low)
-                else context.getString(R.string.pollen_type_level, context.getString(reading.type.labelRes()), context.getString(level.labelRes()))
-                add(DetailItem(R.drawable.ic_d_pollen, text))
-            }
-            WeatherDetail.Moon -> Moon.phase(nowMs).let { add(DetailItem(it.iconRes(), context.getString(it.labelRes()))) }
-            WeatherDetail.Tomorrow -> w.tomorrow?.let { t ->
-                add(DetailItem(
-                    WeatherCondition.from(t.weatherCode, isDay = true).iconRes(),
-                    context.getString(R.string.tomorrow_temps, formatTemp(t.maxC, f), formatTemp(t.minC, f)),
-                ))
-            }
-            WeatherDetail.Hourly -> Unit // drawn as its own strip, not an item
-        }
+): List<DetailItem> = s.shownItems.mapNotNull { detailItem(context, it, w, s.fahrenheit, nowMs, zone, use24h) }
+
+/** One card item, or null when the forecast has nothing for it (e.g. no pollen outside Europe or season). */
+fun detailItem(
+    context: Context,
+    d: WeatherDetail,
+    w: WeatherSnapshot,
+    f: Boolean,
+    nowMs: Long,
+    zone: ZoneId,
+    use24h: Boolean,
+): DetailItem? = when (d) {
+    WeatherDetail.Condition -> DetailItem(null, context.getString(w.condition().labelRes()))
+    WeatherDetail.HighLow -> DetailItem(
+        null,
+        context.getString(R.string.high_low, formatTemp(w.tempMaxC, f), formatTemp(w.tempMinC, f)),
+    )
+    WeatherDetail.SunTimes -> WidgetText.nextSunEvent(w.sunEvents, nowMs)?.let { sun ->
+        DetailItem(
+            if (sun.sunrise) R.drawable.ic_d_sunrise else R.drawable.ic_d_sunset,
+            WidgetText.clock(sun.atEpochMs, zone, use24h),
+        )
     }
+    WeatherDetail.FeelsLike -> w.feelsLikeC?.let {
+        DetailItem(R.drawable.ic_d_feels, context.getString(R.string.feels_like, formatTemp(it, f)))
+    }
+    WeatherDetail.RainChance -> w.precipChancePct?.let { DetailItem(R.drawable.ic_d_rain, context.getString(R.string.percent, it)) }
+    WeatherDetail.Wind -> w.windKmh?.let { DetailItem(R.drawable.ic_d_wind, formatWind(it, f)) }
+    WeatherDetail.Humidity -> w.humidityPct?.let { DetailItem(R.drawable.ic_d_humidity, context.getString(R.string.percent, it)) }
+    WeatherDetail.Uv -> w.uvIndexMax?.let { DetailItem(R.drawable.ic_d_uv, formatUv(it)) }
+    WeatherDetail.AirQuality -> (if (f) w.usAqi else w.europeanAqi)?.let {
+        DetailItem(R.drawable.ic_d_air, context.getString(R.string.aqi, it))
+    }
+    // The pollen icon says what it is; the text is just the level of the worst type.
+    WeatherDetail.Pollen -> Pollen.worst(w.pollen)?.let { (_, level) ->
+        DetailItem(R.drawable.ic_d_pollen, context.getString(level.shortLabelRes()))
+    }
+    WeatherDetail.Moon -> Moon.phase(nowMs).let { DetailItem(it.iconRes(), context.getString(it.labelRes())) }
+    WeatherDetail.Tomorrow -> w.tomorrow?.let { t ->
+        DetailItem(
+            WeatherCondition.from(t.weatherCode, isDay = true).iconRes(),
+            context.getString(R.string.tomorrow_temps, formatTemp(t.maxC, f), formatTemp(t.minC, f)),
+        )
+    }
+    WeatherDetail.Hourly -> null // drawn as its own strip, not an item
 }
 
 fun PollenType.labelRes(): Int = when (this) {
@@ -127,6 +126,14 @@ fun PollenLevel.labelRes(): Int = when (this) {
     PollenLevel.Moderate -> R.string.level_moderate
     PollenLevel.High -> R.string.level_high
     PollenLevel.VeryHigh -> R.string.level_very_high
+}
+
+/** "High", for the pollen chip. */
+fun PollenLevel.shortLabelRes(): Int = when (this) {
+    PollenLevel.Low -> R.string.level_low_short
+    PollenLevel.Moderate -> R.string.level_moderate_short
+    PollenLevel.High -> R.string.level_high_short
+    PollenLevel.VeryHigh -> R.string.level_very_high_short
 }
 
 fun MoonPhase.iconRes(): Int = when (this) {

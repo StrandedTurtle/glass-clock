@@ -48,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.MutablePreferences
@@ -58,6 +60,8 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.dylan.glasswidget.R
 import com.dylan.glasswidget.data.CalendarLink
+import com.dylan.glasswidget.data.CardLines
+import com.dylan.glasswidget.data.SmartLine
 import com.dylan.glasswidget.data.CalendarLinks
 import com.dylan.glasswidget.data.Ics
 import com.dylan.glasswidget.data.CalendarRefreshWorker
@@ -80,7 +84,9 @@ import com.dylan.glasswidget.data.WeatherRefreshWorker
 import com.dylan.glasswidget.data.WidgetAlignment
 import com.dylan.glasswidget.data.WidgetDataStore
 import com.dylan.glasswidget.data.WidgetText
+import com.dylan.glasswidget.widget.Alarms
 import com.dylan.glasswidget.widget.AppTargets
+import com.dylan.glasswidget.widget.detailItem
 import com.dylan.glasswidget.widget.ClockTicker
 import com.dylan.glasswidget.widget.GlassClockWidget
 import com.dylan.glasswidget.widget.WidgetPrefsKeys
@@ -368,29 +374,7 @@ private fun WeatherSection(s: WidgetSettings, edit: Edit) = Section(stringResour
         selected = s.tempUnit,
     ) { u -> edit { it[WidgetPrefsKeys.TEMP_UNIT] = u.key } }
 
-    Label(stringResource(R.string.weather_details))
-    val labels = mapOf(
-        WeatherDetail.Condition to R.string.detail_condition,
-        WeatherDetail.HighLow to R.string.detail_high_low,
-        WeatherDetail.SunTimes to R.string.detail_sun,
-        WeatherDetail.FeelsLike to R.string.detail_feels,
-        WeatherDetail.RainChance to R.string.detail_rain,
-        WeatherDetail.Wind to R.string.detail_wind,
-        WeatherDetail.Humidity to R.string.detail_humidity,
-        WeatherDetail.Uv to R.string.detail_uv,
-        WeatherDetail.AirQuality to R.string.detail_aqi,
-        WeatherDetail.Pollen to R.string.detail_pollen,
-        WeatherDetail.Moon to R.string.detail_moon,
-        WeatherDetail.Tomorrow to R.string.detail_tomorrow,
-        WeatherDetail.Hourly to R.string.detail_hourly,
-    )
-    MultiChips(WeatherDetail.entries.map { it to stringResource(labels.getValue(it)) }, s.details) { d, on ->
-        val next = if (on) s.details + d else s.details - d
-        edit {
-            it[WidgetPrefsKeys.WEATHER_DETAILS] = next.map(WeatherDetail::key).toSet()
-            it[WidgetPrefsKeys.WEATHER_DETAILS_REV] = 2
-        }
-    }
+    WeatherItems(s, edit)
 
     Hint(stringResource(R.string.weather_source))
     TextButton(onClick = { WeatherRefreshWorker.refreshNow(context) }) { Text(stringResource(R.string.refresh_now)) }
@@ -509,6 +493,107 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
         }
     }
 
+private val DETAIL_LABELS = mapOf(
+    WeatherDetail.Condition to R.string.detail_condition,
+    WeatherDetail.HighLow to R.string.detail_high_low,
+    WeatherDetail.SunTimes to R.string.detail_sun,
+    WeatherDetail.FeelsLike to R.string.detail_feels,
+    WeatherDetail.RainChance to R.string.detail_rain,
+    WeatherDetail.Wind to R.string.detail_wind,
+    WeatherDetail.Humidity to R.string.detail_humidity,
+    WeatherDetail.Uv to R.string.detail_uv,
+    WeatherDetail.AirQuality to R.string.detail_aqi,
+    WeatherDetail.Pollen to R.string.detail_pollen,
+    WeatherDetail.Moon to R.string.detail_moon,
+    WeatherDetail.Tomorrow to R.string.detail_tomorrow,
+    WeatherDetail.Hourly to R.string.detail_hourly,
+)
+
+/**
+ * The card's items as an ordered list: a switch per item and arrows to move it. The order is also the
+ * priority: when the card is full, items at the bottom are the ones left out.
+ */
+@Composable
+private fun WeatherItems(s: WidgetSettings, edit: Edit) {
+    val context = LocalContext.current
+    val data by WidgetDataStore.flow(context).collectAsState(initial = null)
+    val snapshot = s.location?.let { data?.weather?.entries?.get(it.key) }
+    val now = System.currentTimeMillis()
+    val zone = java.time.ZoneId.systemDefault()
+
+    fun saveDetails(next: Set<WeatherDetail>) = edit {
+        it[WidgetPrefsKeys.WEATHER_DETAILS] = next.map(WeatherDetail::key).toSet()
+        it[WidgetPrefsKeys.WEATHER_DETAILS_REV] = 2
+    }
+    fun toggle(d: WeatherDetail, on: Boolean) {
+        saveDetails(if (on) s.details + d else s.details - d)
+        // Data added in an update (hourly, pollen, tomorrow, UV) arrives with the next fetch: get it now.
+        if (on) WeatherRefreshWorker.refreshNow(context)
+    }
+    fun move(i: Int, by: Int) {
+        val order = s.order.toMutableList()
+        val j = i + by
+        if (j !in order.indices) return
+        order.add(j, order.removeAt(i))
+        edit { it[WidgetPrefsKeys.WEATHER_ORDER] = WeatherDetail.encodeOrder(order) }
+    }
+
+    Label(stringResource(R.string.weather_items))
+    Hint(stringResource(R.string.weather_items_hint))
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(vertical = 4.dp)) {
+            s.order.forEachIndexed { i, d ->
+                val on = d in s.details
+                val missing = on && snapshot != null &&
+                    detailItem(context, d, snapshot, s.fahrenheit, now, zone, true) == null
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { toggle(d, !on) }.padding(start = 4.dp, end = 12.dp),
+                ) {
+                    androidx.compose.material3.Checkbox(checked = on, onCheckedChange = { toggle(d, it) })
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(DETAIL_LABELS.getValue(d)),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (missing) {
+                            // Fetched before this item existed, or the forecast has none here (pollen is Europe-only and seasonal).
+                            val stale = snapshot!!.fetchedAtEpochMs < now - 35 * 60_000L
+                            Text(
+                                stringResource(if (stale) R.string.item_waiting else R.string.item_no_data),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    TextButton(onClick = { move(i, -1) }, enabled = i > 0) {
+                        Text("▲", modifier = Modifier.semantics { contentDescription = context.getString(R.string.move_up) })
+                    }
+                    TextButton(onClick = { move(i, 1) }, enabled = i < s.order.lastIndex) {
+                        Text("▼", modifier = Modifier.semantics { contentDescription = context.getString(R.string.move_down) })
+                    }
+                }
+            }
+        }
+    }
+
+    Label(stringResource(R.string.card_lines))
+    Chips(
+        CardLines.entries.map { it to (it.lines?.toString() ?: stringResource(R.string.lines_auto)) },
+        selected = s.cardLines,
+    ) { c -> edit { it[WidgetPrefsKeys.CARD_LINES] = c.key } }
+    Hint(stringResource(R.string.card_lines_hint))
+
+    SwitchRow(stringResource(R.string.detail_hourly), stringResource(R.string.hourly_sub), WeatherDetail.Hourly in s.details) { on ->
+        toggle(WeatherDetail.Hourly, on)
+    }
+}
+
 /** The smart line above the clock: what it may show. Calendar events are set up in their own section. */
 @Composable
 private fun TopLineSection(s: WidgetSettings, edit: Edit) = Section(stringResource(R.string.section_top_line)) {
@@ -518,6 +603,41 @@ private fun TopLineSection(s: WidgetSettings, edit: Edit) = Section(stringResour
     }
     SwitchRow(stringResource(R.string.top_alarm), stringResource(R.string.top_alarm_sub), s.smartAlarm) { on ->
         edit { it[WidgetPrefsKeys.SMART_ALARM] = on }
+    }
+    if (s.smartAlarm) {
+        // Say which alarm Android reports and whether it counts, so a stray one is explained.
+        val context = LocalContext.current
+        val next = remember { Alarms.next(context) }
+        val use24h = android.text.format.DateFormat.is24HourFormat(context)
+        Hint(
+            when {
+                next == null -> stringResource(R.string.top_alarm_none)
+                else -> {
+                    val time = SimpleDateFormat(if (use24h) "EEE H:mm" else "EEE h:mm a", Locale.getDefault()).format(Date(next.atMs))
+                    val app = next.creator?.let { Alarms.appName(context, it) } ?: stringResource(R.string.top_alarm_unknown)
+                    stringResource(if (next.counts) R.string.top_alarm_next else R.string.top_alarm_ignored, time, app)
+                }
+            },
+        )
+    }
+    Label(stringResource(R.string.top_charge))
+    Chips(
+        listOf(
+            SmartLine.ChargeTarget.Off to stringResource(R.string.charge_off),
+            SmartLine.ChargeTarget.Full to stringResource(R.string.charge_full),
+            SmartLine.ChargeTarget.Eighty to stringResource(R.string.charge_80),
+        ),
+        selected = s.smartCharge,
+    ) { t -> edit { it[WidgetPrefsKeys.SMART_CHARGE] = t.key } }
+    Hint(stringResource(R.string.top_charge_sub))
+    SwitchRow(stringResource(R.string.top_health), stringResource(R.string.top_health_sub), s.smartHealth) { on ->
+        edit { it[WidgetPrefsKeys.SMART_HEALTH] = on }
+    }
+    SwitchRow(stringResource(R.string.top_frost), stringResource(R.string.top_frost_sub), s.smartFrost) { on ->
+        edit { it[WidgetPrefsKeys.SMART_FROST] = on }
+    }
+    SwitchRow(stringResource(R.string.top_sun), stringResource(R.string.top_sun_sub), s.smartSun) { on ->
+        edit { it[WidgetPrefsKeys.SMART_SUN] = on }
     }
     val region = s.location?.let { MetOfficeWarnings.regionFor(it.lat, it.lon) }
     SwitchRow(
@@ -731,17 +851,6 @@ private fun <T> Chips(options: List<Pair<T, String>>, selected: T, onSelect: (T)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (value, label) ->
             FilterChip(selected = value == selected, onClick = { onSelect(value) }, label = { Text(label) })
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun <T> MultiChips(options: List<Pair<T, String>>, selected: Set<T>, onToggle: (T, Boolean) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { (value, label) ->
-            val on = value in selected
-            FilterChip(selected = on, onClick = { onToggle(value, !on) }, label = { Text(label) })
         }
     }
 }

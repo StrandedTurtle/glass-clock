@@ -61,21 +61,25 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
                 "?latitude=${coord(lat)}&longitude=${coord(lon)}" +
                 "&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m" +
                 "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,uv_index_max,weather_code" +
-                "&hourly=precipitation_probability,temperature_2m,weather_code,is_day,precipitation" +
+                "&hourly=precipitation_probability,temperature_2m,weather_code,is_day,precipitation,uv_index" +
                 "&minutely_15=precipitation&forecast_minutely_15=16" +
                 "&forecast_days=2&timezone=auto" +
                 (model?.let { "&models=$it" } ?: "")
 
         /** [primary]'s values where it has them, otherwise [fallback]'s; rain chance always from the ensemble blend. */
         fun preferring(primary: WeatherSnapshot, fallback: WeatherSnapshot): WeatherSnapshot {
-            val chanceAt = fallback.hourly.associate { it.atEpochMs to it.precipChancePct }
-            val hourly = primary.hourly.ifEmpty { fallback.hourly }.map { h -> h.copy(precipChancePct = chanceAt[h.atEpochMs]) }
+            val fromBlend = fallback.hourly.associateBy { it.atEpochMs }
+            val hourly = primary.hourly.ifEmpty { fallback.hourly }.map { h ->
+                val b = fromBlend[h.atEpochMs]
+                h.copy(precipChancePct = b?.precipChancePct, uvIndex = h.uvIndex ?: b?.uvIndex)
+            }
             return primary.copy(
                 feelsLikeC = primary.feelsLikeC ?: fallback.feelsLikeC,
                 humidityPct = primary.humidityPct ?: fallback.humidityPct,
                 windKmh = primary.windKmh ?: fallback.windKmh,
                 precipChancePct = fallback.precipChancePct,
                 uvIndexMax = primary.uvIndexMax ?: fallback.uvIndexMax,
+                uvNow = primary.uvNow ?: fallback.uvNow,
                 sunEvents = primary.sunEvents.ifEmpty { fallback.sunEvents },
                 hourly = hourly,
                 rainSlots = primary.rainSlots.ifEmpty { fallback.rainSlots },
@@ -125,6 +129,7 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
                 precipChancePct = rainChanceSoon(resp.hourly, offset, nowMs)
                     ?: daily?.precipProbMax?.firstOrNull()?.roundToInt(),
                 uvIndexMax = daily?.uvIndexMax?.firstOrNull(),
+                uvNow = uvNow(resp.hourly, offset, nowMs),
                 sunEvents = sun,
                 hourly = hours(resp.hourly, offset, nowMs),
                 rainSlots = rainSlots(resp.minutely15, resp.hourly, offset, nowMs),
@@ -140,8 +145,21 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
                 if (at <= nowMs) return@mapNotNull null
                 val temp = h.temperature.getOrNull(i) ?: return@mapNotNull null
                 val code = h.weatherCode.getOrNull(i) ?: return@mapNotNull null
-                HourForecast(at, temp, code, (h.isDay.getOrNull(i) ?: 1) != 0, h.precipProb.getOrNull(i)?.roundToInt())
+                HourForecast(
+                    at, temp, code, (h.isDay.getOrNull(i) ?: 1) != 0,
+                    h.precipProb.getOrNull(i)?.roundToInt(), h.uvIndex.getOrNull(i),
+                )
             }.take(HOURLY_AHEAD)
+        }
+
+        /** UV index for the hour in progress. */
+        private fun uvNow(h: HourlyBlock?, offset: ZoneOffset, nowMs: Long): Double? {
+            if (h == null) return null
+            val i = h.time.indexOfFirst { t ->
+                val start = localToEpochMs(t, offset) ?: return@indexOfFirst false
+                nowMs >= start && nowMs < start + 3_600_000L
+            }
+            return if (i < 0) null else h.uvIndex.getOrNull(i)
         }
 
         /** Rain amounts ahead: 15-minute slots where the model has them, else hourly. */
