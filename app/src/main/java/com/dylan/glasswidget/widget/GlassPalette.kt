@@ -12,11 +12,12 @@ import com.dylan.glasswidget.data.TintMode
  * Colours for one render. Each carries a day and a night value so the launcher can flip them itself
  * when the system theme changes (only "Wallpaper colours" actually differs between the two).
  *
- * [darkGlass] picks the smoked digit images instead of the frosted white ones; [glassAlpha] thins
- * them out for the Clear variant.
+ * [glyphs] picks which glass digit images to draw; [glassAlpha] thins them out for the Clear variant.
  */
+enum class GlyphSet { Light, Dark, Accent }
+
 class GlassPalette(
-    val darkGlass: Boolean,
+    val glyphs: GlyphSet,
     val glassAlpha: Int,
     val textDay: Int,
     val textNight: Int,
@@ -42,19 +43,19 @@ class GlassPalette(
             val alpha = if (clear) 199 else 255
             return when (tint) {
                 TintMode.Frost -> GlassPalette(
-                    false, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
+                    GlyphSet.Light, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
                     if (clear) R.drawable.pill_frost_clear else R.drawable.pill_frost_soft, lightText = true,
                 )
                 TintMode.Smoke -> GlassPalette(
-                    true, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
+                    GlyphSet.Dark, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
                     if (clear) R.drawable.pill_smoke_clear else R.drawable.pill_smoke_soft, lightText = true,
                 )
                 TintMode.Ink -> GlassPalette(
-                    true, alpha, INK, INK, INK_SECONDARY, INK_SECONDARY,
+                    GlyphSet.Dark, alpha, INK, INK, INK_SECONDARY, INK_SECONDARY,
                     if (clear) R.drawable.pill_ink_clear else R.drawable.pill_ink_soft, lightText = false,
                 )
                 TintMode.Dynamic -> GlassPalette(
-                    false, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
+                    GlyphSet.Accent, alpha, WHITE, WHITE, WHITE_SECONDARY, WHITE_SECONDARY,
                     if (clear) R.drawable.pill_dynamic_clear else R.drawable.pill_dynamic_soft, lightText = true,
                 )
             }

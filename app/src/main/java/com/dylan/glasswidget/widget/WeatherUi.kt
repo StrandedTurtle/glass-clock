@@ -49,7 +49,8 @@ fun WeatherCondition.labelRes(): Int = when (this) {
 
 fun WeatherSnapshot.condition(): WeatherCondition = WeatherCondition.from(weatherCode, isDay)
 
-data class DetailItem(@DrawableRes val icon: Int, val text: String)
+/** One bit of weather in the pill. [icon] null = text only (condition, high/low). */
+data class DetailItem(@DrawableRes val icon: Int?, val text: String)
 
 /** The chosen extras that have data, in a fixed order, for the detail pills. */
 fun detailItems(
@@ -64,6 +65,11 @@ fun detailItems(
     for (d in WeatherDetail.entries) {
         if (d !in s.details) continue
         when (d) {
+            WeatherDetail.Condition -> add(DetailItem(null, context.getString(w.condition().labelRes())))
+            WeatherDetail.HighLow -> add(DetailItem(
+                null,
+                context.getString(R.string.high_low, formatTemp(w.tempMaxC, f), formatTemp(w.tempMinC, f)),
+            ))
             WeatherDetail.SunTimes -> WidgetText.nextSunEvent(w.sunEvents, nowMs)?.let { sun ->
                 add(DetailItem(
                     if (sun.sunrise) R.drawable.ic_d_sunrise else R.drawable.ic_d_sunset,
@@ -84,19 +90,9 @@ fun detailItems(
             WeatherDetail.AirQuality -> (if (f) w.usAqi else w.europeanAqi)?.let {
                 add(DetailItem(R.drawable.ic_d_air, context.getString(R.string.aqi, it)))
             }
-            else -> Unit // condition and high/low sit next to the temperature
         }
     }
 }
-
-/** "Cloudy · ↑17° ↓9°" — whichever of the two in-pill extras are switched on. */
-fun pillExtras(context: Context, w: WeatherSnapshot, s: WidgetSettings, roomForCondition: Boolean): String =
-    listOfNotNull(
-        if (WeatherDetail.Condition in s.details && roomForCondition) context.getString(w.condition().labelRes()) else null,
-        if (WeatherDetail.HighLow in s.details)
-            context.getString(R.string.high_low, formatTemp(w.tempMaxC, s.fahrenheit), formatTemp(w.tempMinC, s.fahrenheit))
-        else null,
-    ).joinToString(" · ")
 
 @Composable
 fun GlassIcon(@DrawableRes res: Int, sizeDp: Int, palette: GlassPalette, description: String? = null) {

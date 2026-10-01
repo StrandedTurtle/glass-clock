@@ -92,4 +92,20 @@ class WidgetTextTest {
         assertEquals(listOf(listOf(0, 1), listOf(2, 3), listOf(4)), WidgetText.packRows(List(5) { 1f }, 100f, 1f, perRow = 2))
         assertEquals(emptyList<List<Int>>(), WidgetText.packRows(emptyList(), 100f, 5f))
     }
+
+    @Test fun packRowsCanContinueAnOccupiedFirstRow() {
+        // First row already 60 wide: one 30-wide item joins (60 + 5 + 30 = 95), the rest wrap.
+        assertEquals(
+            listOf(listOf(0), listOf(1, 2, 3), listOf(4)),
+            WidgetText.packRows(List(5) { 30f }, 100f, 5f, firstRowUsed = 60f),
+        )
+        // Nothing fits after the occupied part: first row stays empty but is still returned.
+        assertEquals(listOf(emptyList(), listOf(0)), WidgetText.packRows(listOf(50f), 100f, 5f, firstRowUsed = 90f))
+        // First-row item cap.
+        assertEquals(
+            listOf(listOf(0), listOf(1, 2)),
+            WidgetText.packRows(List(3) { 1f }, 100f, 1f, firstRowUsed = 0f, firstRowMax = 1),
+        )
+        assertEquals(listOf(emptyList<Int>()), WidgetText.packRows(emptyList(), 100f, 5f, firstRowUsed = 10f))
+    }
 }

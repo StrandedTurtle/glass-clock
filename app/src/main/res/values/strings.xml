@@ -66,7 +66,8 @@
     <string name="alignment">Alignment</string>
     <string name="align_center">Centre</string>
     <string name="align_start">Left</string>
-    <string name="text_scale">Clock size: %1$d%%</string>
+    <string name="clock_scale">Clock size: %1$d%% of the available space</string>
+    <string name="text_scale">Text size: %1$d%%</string>
 
     <string name="hour_mode">Time format</string>
     <string name="hour_system">System</string>

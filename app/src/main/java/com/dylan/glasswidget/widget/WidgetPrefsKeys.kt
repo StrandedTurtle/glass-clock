@@ -18,7 +18,8 @@ object WidgetPrefsKeys {
     val GLASS_VARIANT = stringPreferencesKey("glass_variant")
     val TINT_MODE = stringPreferencesKey("tint_mode")
     val ALIGNMENT = stringPreferencesKey("alignment")
-    val TEXT_SCALE = floatPreferencesKey("text_scale")
+    val TEXT_SCALE = floatPreferencesKey("text_scale")    // pill text
+    val CLOCK_SCALE = floatPreferencesKey("clock_scale")  // digits
 
     // Clock & date
     val HOUR_MODE = stringPreferencesKey("hour_mode")

@@ -7,6 +7,8 @@ import androidx.glance.ImageProvider
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
+import androidx.glance.layout.Column
+import androidx.glance.layout.ColumnScope
 import androidx.glance.layout.Row
 import androidx.glance.layout.RowScope
 import androidx.glance.layout.height
@@ -34,10 +36,28 @@ fun GlassPill(
     )
 }
 
-/** Hairline separator between the date and the weather inside a pill. */
+/**
+ * The same glass for several lines (date and weather, then more weather). With more than one line the
+ * 999dp corners clamp to half the height, so it reads as a softly rounded glass card.
+ */
+@Composable
+fun GlassCard(
+    palette: GlassPalette,
+    modifier: GlanceModifier = GlanceModifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .background(ImageProvider(palette.pillRes))
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        content = content,
+    )
+}
+
+/** Hairline separator between the date and the weather. A single child, so it's cheap in a row. */
 @Composable
 fun PillDivider(palette: GlassPalette) {
-    Box(GlanceModifier.width(10.dp)) {}
-    Box(GlanceModifier.width(1.dp).height(13.dp).background(palette.divider)) {}
-    Box(GlanceModifier.width(10.dp)) {}
+    Box(GlanceModifier.padding(horizontal = 10.dp)) {
+        Box(GlanceModifier.width(1.dp).height(13.dp).background(palette.divider)) {}
+    }
 }

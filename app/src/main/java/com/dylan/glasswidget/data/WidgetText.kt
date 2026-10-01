@@ -33,18 +33,37 @@ object WidgetText {
     /**
      * Greedily packs items (by estimated width) into rows no wider than [maxWidth], at most [perRow]
      * per row (Glance caps a row at 10 children; each item plus its gap takes two). Returns indices.
+     *
+     * With [firstRowUsed], the first row already holds content that wide (the date and temperature),
+     * items join it while they fit (up to [firstRowMax] of them), and the result always starts with
+     * that first row, even if it stays empty.
      */
-    fun packRows(widths: List<Float>, maxWidth: Float, gap: Float, perRow: Int = 5): List<List<Int>> {
+    fun packRows(
+        widths: List<Float>,
+        maxWidth: Float,
+        gap: Float,
+        perRow: Int = 5,
+        firstRowUsed: Float? = null,
+        firstRowMax: Int = perRow,
+    ): List<List<Int>> {
         val rows = mutableListOf<MutableList<Int>>()
         var used = 0f
+        var cap = perRow
+        if (firstRowUsed != null) {
+            rows += mutableListOf<Int>()
+            used = firstRowUsed
+            cap = firstRowMax
+        }
         widths.forEachIndexed { i, w ->
             val row = rows.lastOrNull()
-            if (row != null && row.size < perRow && used + gap + w <= maxWidth) {
+            val extra = if (row.isNullOrEmpty() && firstRowUsed == null) w else gap + w
+            if (row != null && row.size < cap && used + extra <= maxWidth && !(row.isEmpty() && rows.size > 1)) {
                 row += i
-                used += gap + w
+                used += extra
             } else {
                 rows += mutableListOf(i)
                 used = w
+                cap = perRow
             }
         }
         return rows

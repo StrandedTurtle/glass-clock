@@ -231,14 +231,24 @@ private fun LookSection(s: WidgetSettings, edit: Edit) = Section(stringResource(
         selected = s.alignment,
     ) { a -> edit { it[WidgetPrefsKeys.ALIGNMENT] = a.key } }
 
-    var scale by remember(s.textScale) { mutableFloatStateOf(s.textScale) }
-    Label(stringResource(R.string.text_scale, (scale * 100).roundToInt()))
+    var clock by remember(s.clockScale) { mutableFloatStateOf(s.clockScale) }
+    Label(stringResource(R.string.clock_scale, (clock * 100).roundToInt()))
     Slider(
-        value = scale,
-        onValueChange = { scale = it },
+        value = clock,
+        onValueChange = { clock = it },
+        valueRange = Limits.CLOCK_SCALE_MIN..Limits.CLOCK_SCALE_MAX,
+        steps = 9,
+        onValueChangeFinished = { edit { it[WidgetPrefsKeys.CLOCK_SCALE] = Limits.clampClockScale(clock) } },
+    )
+
+    var text by remember(s.textScale) { mutableFloatStateOf(s.textScale) }
+    Label(stringResource(R.string.text_scale, (text * 100).roundToInt()))
+    Slider(
+        value = text,
+        onValueChange = { text = it },
         valueRange = Limits.TEXT_SCALE_MIN..Limits.TEXT_SCALE_MAX,
         steps = 4,
-        onValueChangeFinished = { edit { it[WidgetPrefsKeys.TEXT_SCALE] = Limits.clampTextScale(scale) } },
+        onValueChangeFinished = { edit { it[WidgetPrefsKeys.TEXT_SCALE] = Limits.clampTextScale(text) } },
     )
 }
 

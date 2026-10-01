@@ -112,6 +112,10 @@ enum class WidgetSize {
 object Limits {
     const val TEXT_SCALE_MIN = 0.8f
     const val TEXT_SCALE_MAX = 1.3f
+    // 100% = as big as the widget allows once the pills are placed; smaller leaves breathing room.
+    const val CLOCK_SCALE_MIN = 0.5f
+    const val CLOCK_SCALE_MAX = 1.0f
 
     fun clampTextScale(v: Float) = v.coerceIn(TEXT_SCALE_MIN, TEXT_SCALE_MAX)
+    fun clampClockScale(v: Float) = v.coerceIn(CLOCK_SCALE_MIN, CLOCK_SCALE_MAX)
 }

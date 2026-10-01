@@ -50,9 +50,23 @@ private val DARK_GLYPHS = intArrayOf(
     R.drawable.clock_dark_8, R.drawable.clock_dark_9,
 )
 
-private fun glyphRes(c: Char, dark: Boolean): Int = when {
-    c == ':' -> if (dark) R.drawable.clock_dark_colon else R.drawable.clock_light_colon
-    c.isDigit() -> (if (dark) DARK_GLYPHS else LIGHT_GLYPHS)[c - '0']
+private val ACCENT_GLYPHS = intArrayOf(
+    R.drawable.clock_accent_0, R.drawable.clock_accent_1, R.drawable.clock_accent_2, R.drawable.clock_accent_3,
+    R.drawable.clock_accent_4, R.drawable.clock_accent_5, R.drawable.clock_accent_6, R.drawable.clock_accent_7,
+    R.drawable.clock_accent_8, R.drawable.clock_accent_9,
+)
+
+private fun glyphRes(c: Char, set: GlyphSet): Int = when {
+    c == ':' -> when (set) {
+        GlyphSet.Light -> R.drawable.clock_light_colon
+        GlyphSet.Dark -> R.drawable.clock_dark_colon
+        GlyphSet.Accent -> R.drawable.clock_accent_colon
+    }
+    c.isDigit() -> when (set) {
+        GlyphSet.Light -> LIGHT_GLYPHS
+        GlyphSet.Dark -> DARK_GLYPHS
+        GlyphSet.Accent -> ACCENT_GLYPHS
+    }[c - '0']
     else -> 0
 }
 
@@ -77,7 +91,7 @@ fun ClockDigits(
     val views = if (style == ClockStyle.Glass) {
         RemoteViews(context.packageName, R.layout.clock_digits).apply {
             GLYPH_VIEWS.forEachIndexed { i, id ->
-                val res = text.getOrNull(i)?.let { glyphRes(it, palette.darkGlass) } ?: 0
+                val res = text.getOrNull(i)?.let { glyphRes(it, palette.glyphs) } ?: 0
                 if (res == 0) {
                     setViewVisibility(id, View.GONE)
                 } else {
