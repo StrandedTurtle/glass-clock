@@ -199,7 +199,11 @@ private typealias Edit = ((MutablePreferences) -> Unit) -> Unit
 private fun LookSection(s: WidgetSettings, edit: Edit) = Section(stringResource(R.string.section_look)) {
     Label(stringResource(R.string.clock_style))
     Chips(
-        listOf(ClockStyle.Glass to stringResource(R.string.style_glass), ClockStyle.Solid to stringResource(R.string.style_solid)),
+        listOf(
+            ClockStyle.Crystal to stringResource(R.string.style_crystal),
+            ClockStyle.Glass to stringResource(R.string.style_glass),
+            ClockStyle.Solid to stringResource(R.string.style_solid),
+        ),
         selected = s.clockStyle,
     ) { v -> edit { it[WidgetPrefsKeys.CLOCK_STYLE] = v.key } }
     Text(

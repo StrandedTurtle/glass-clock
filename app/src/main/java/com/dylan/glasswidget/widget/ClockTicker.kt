@@ -10,7 +10,6 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import com.dylan.glasswidget.data.ClockStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,7 +59,7 @@ object ClockTicker {
         val ids = GlanceAppWidgetManager(context).getGlanceIds(GlassClockWidget::class.java)
         return ids.any { id ->
             val prefs: Preferences = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)
-            WidgetSettings.from(prefs).clockStyle == ClockStyle.Glass
+            WidgetSettings.from(prefs).clockStyle.usesImages
         }
     }
 

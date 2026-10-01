@@ -52,8 +52,9 @@
     <string name="section_reliability">Keep it updating</string>
 
     <string name="clock_style">Clock</string>
+    <string name="style_crystal">Crystal</string>
     <string name="style_glass">Glass</string>
-    <string name="style_glass_note">Glass digits are redrawn by the app every minute, so turn on Autostart and unrestricted battery below. Solid uses the system font and is always exact.</string>
+    <string name="style_glass_note">Crystal and Glass digits are redrawn by the app every minute, so turn on Autostart and unrestricted battery below. Solid uses the system font and is always exact.</string>
     <string name="style_solid">Solid (system font)</string>
     <string name="glass_variant">Glass</string>
     <string name="variant_soft">Frosted</string>

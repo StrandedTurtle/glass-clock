@@ -165,6 +165,8 @@ class DataLayerTest {
         assertEquals(TintMode.Frost, TintMode.from("light")) // pre-redesign value falls back cleanly
         assertEquals(TintMode.Ink, TintMode.from("ink"))
         assertEquals(ClockStyle.Glass, ClockStyle.from(null))
+        assertEquals(ClockStyle.Crystal, ClockStyle.from("crystal"))
+        assertTrue(ClockStyle.Crystal.usesImages && ClockStyle.Glass.usesImages && !ClockStyle.Solid.usesImages)
         assertEquals(WidgetAlignment.Start, WidgetAlignment.from("start"))
         assertEquals(HourMode.H24, HourMode.from("24"))
         assertEquals(DatePreset.Short, DatePreset.from("nope"))

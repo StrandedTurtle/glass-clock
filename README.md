@@ -6,11 +6,12 @@ Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use 
 - **Glass digits**: heavy condensed numerals (derived from Anton) drawn as vector images with a frosted
   body, bright rim and top highlight, sized to fill whatever space the launcher gives the widget.
   Launchers ignore custom fonts in widgets, so the digits are images, redrawn each minute by an exact,
-  non-waking alarm. Solid style is a system-font `TextClock` that ticks by itself.
+  non-waking alarm. Two glass looks: **Crystal** (directional lighting: lit top-left edges, a refraction
+  line and caustic on the far edges, fresnel edge glow) and **Glass** (frosted body with a bright rim).
+  Solid style is a system-font `TextClock` that ticks by itself.
 - **One glass card**: date | weather icon and temperature, then condition, high/low, sunrise/sunset,
   feels like, rain chance, wind, humidity, UV and air quality, wrapping onto extra lines inside the same
   glass; plus your **next calendar event** in its own pill.
-  Every detail you switch on shows, flowing onto as many stacked pills as the widget height allows.
 - **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
   wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
   simply lets the system wallpaper show through.
