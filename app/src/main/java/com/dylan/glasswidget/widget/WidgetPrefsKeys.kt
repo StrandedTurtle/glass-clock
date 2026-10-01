@@ -15,6 +15,7 @@ object WidgetPrefsKeys {
 
     // Look
     val CLOCK_STYLE = stringPreferencesKey("clock_style")
+    val CLOCK_FACE = stringPreferencesKey("clock_face")
     val GLASS_VARIANT = stringPreferencesKey("glass_variant")
     val TINT_MODE = stringPreferencesKey("tint_mode")
     val ALIGNMENT = stringPreferencesKey("alignment")
@@ -39,5 +40,7 @@ object WidgetPrefsKeys {
 
     // Calendar
     val SHOW_EVENTS = booleanPreferencesKey("show_events")
+    val USE_DEVICE_CALENDARS = booleanPreferencesKey("use_device_calendars")
+    val CALENDAR_LINKS = stringPreferencesKey("calendar_links") // one .ics URL per line
     val EVENTS_ALL_DAY = booleanPreferencesKey("events_all_day")
 }

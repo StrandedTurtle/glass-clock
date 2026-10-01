@@ -3,15 +3,19 @@
 A single Android home-screen widget styled after HyperOS 4's glass lockscreen clock, built to replace
 Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use it).
 
-- **Glass digits**: heavy condensed numerals (derived from Anton) drawn as vector images with a frosted
-  body, bright rim and top highlight, sized to fill whatever space the launcher gives the widget.
-  Launchers ignore custom fonts in widgets, so the digits are images, redrawn each minute by an exact,
-  non-waking alarm. Two glass looks: **Crystal** (directional lighting: lit top-left edges, a refraction
-  line and caustic on the far edges, fresnel edge glow) and **Glass** (frosted body with a bright rim).
-  Solid style is a system-font `TextClock` that ticks by itself.
+- **Glass digits**: numerals drawn as vector images with glass lighting studied from the HyperOS lockscreen
+  (lit top-left edges, a refraction line and caustic on the far edges, fresnel edge glow, hairline
+  specular), sized to fill whatever space the launcher gives the widget. Six fonts: Condensed (the
+  HyperOS look, from Anton), Rounded (Nunito), Geometric (Outfit), Serif (DM Serif Display), Mono
+  (JetBrains Mono) and Tall (Bebas Neue). Launchers ignore custom fonts in widgets, so the digits are
+  images, redrawn each minute by an exact, non-waking alarm. Solid style is a system-font `TextClock`.
 - **One glass card**: date | weather icon and temperature, then condition, high/low, sunrise/sunset,
   feels like, rain chance, wind, humidity, UV and air quality, wrapping onto extra lines inside the same
   glass; plus your **next calendar event** in its own pill.
+- **Calendar sources**: calendars synced into Android (Google, Xiaomi, Samsung, Etar, DAVx⁵…) and/or
+  calendar links (.ics / webcal). Proton Calendar doesn't share its events with Android, so add its
+  "Share with anyone" link (calendar.proton.me → Settings → Calendars → Share with anyone → Create link).
+  Repeating events, exceptions and moved occurrences are handled; links refresh every 30 minutes.
 - **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
   wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
   simply lets the system wallpaper show through.
@@ -75,7 +79,7 @@ HyperOS kills background apps aggressively. In the app's settings screen use the
 - The `data/` package logic (API parsing, sun and event selection, formatting) has no Android
   dependencies and is covered by JVM unit tests (`app/src/test`).
 - Icons are from [Lucide](https://lucide.dev) (ISC); regenerate with `python3 tools/gen_resources.py`.
-  Font licence: `licenses/Anton-OFL.txt`.
+  Font licences: `licenses/` (all SIL OFL 1.1).
 
 ## Testing checklist (on a device)
 

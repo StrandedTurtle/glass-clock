@@ -114,7 +114,7 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     val location = s.location
     val weather: WeatherSnapshot? = location?.let { data.weather.entries[it.key] }
     val event: CalendarEvent? =
-        if (s.showEvents) WidgetText.pickEvent(data.events, now, zone, s.eventsAllDay) else null
+        if (s.showEvents) WidgetText.pickEvent(s.visibleEvents(data.events), now, zone, s.eventsAllDay) else null
 
     // Resolved at render time; null means the zone is inert.
     val clockIntent = AppTargets.launchIntent(context, Zone.Clock, s.clockApp)
@@ -144,7 +144,7 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     }
     var lines = packed.take(maxLines)
     var showEvent = event != null && size != WidgetSize.Standard
-    val clockAspectWidth = WidgetText.clockWidth(clockText, 1f)
+    val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
         val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + 16f
         val pills = card + m.gapDp + if (showEvent) m.pillHeightDp + m.gapDp else 0f
@@ -162,7 +162,7 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     val digits: @Composable (GlanceModifier) -> Unit = { mod ->
         TapZone(clockIntent, mod) {
             ClockDigits(
-                context, s.clockStyle, clockText, WidgetText.clock(now, zone, use24h),
+                context, s.clockStyle, s.clockFace, clockText, WidgetText.clock(now, zone, use24h),
                 s.hourMode, s.showColon, s.alignment, palette, GlanceModifier.fillMaxSize(),
             )
         }
@@ -200,7 +200,9 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         InfoCard(context, s, palette, m, weather, location == null, dateIntent, weatherIntent, lines.map { row -> row.map { items[it] } })
         if (showEvent && event != null) {
             Spacer(GlanceModifier.height(gap))
-            EventPill(context, palette, m, event, now, zone, use24h)
+            // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
+            val eventIntent = if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event)
+            EventPill(context, palette, m, event, eventIntent, now, zone, use24h)
         }
     }
 }
@@ -269,11 +271,12 @@ private fun EventPill(
     palette: GlassPalette,
     m: Metrics,
     e: CalendarEvent,
+    intent: Intent?,
     now: Long,
     zone: ZoneId,
     use24h: Boolean,
 ) {
-    TapZone(CalendarRepository.viewIntent(e)) {
+    TapZone(intent) {
         GlassPill(palette) {
             GlassIcon(R.drawable.ic_d_event, m.iconDp - 1, palette)
             Spacer(GlanceModifier.width(6.dp))

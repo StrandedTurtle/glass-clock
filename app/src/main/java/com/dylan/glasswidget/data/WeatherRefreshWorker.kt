@@ -61,7 +61,7 @@ class WeatherRefreshWorker(appContext: Context, params: WorkerParameters) :
 
         WidgetDataStore.saveWeather(ctx, fresh)
         // Also refreshes events, redraws every widget and schedules the next boundary redraw.
-        CalendarRefreshWorker.refreshAndRedraw(ctx)
+        CalendarRefreshWorker.refreshAndRedraw(ctx, fetchLinks = true)
 
         // Back off and retry a few times on failure; after that wait for the next periodic run.
         return if (failures > 0 && fresh.isEmpty() && runAttemptCount < 4) Result.retry() else Result.success()

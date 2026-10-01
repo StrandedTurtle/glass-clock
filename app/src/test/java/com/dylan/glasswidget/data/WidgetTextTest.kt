@@ -5,6 +5,7 @@ import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -78,9 +79,12 @@ class WidgetTextTest {
         assertEquals("1305", WidgetText.clockText(pm, zone, use24h = true, colon = false))
     }
 
-    @Test fun clockWidthUsesDigitAndColonAspects() {
-        assertEquals(4 * WidgetText.DIGIT_ASPECT * 100f, WidgetText.clockWidth("0745", 100f), 0.01f)
-        assertEquals((4 * WidgetText.DIGIT_ASPECT + WidgetText.COLON_ASPECT) * 100f, WidgetText.clockWidth("07:45", 100f), 0.01f)
+    @Test fun clockWidthUsesTheFacesDigitAndColonAspects() {
+        val f = ClockFace.Condensed
+        assertEquals(4 * f.digitAspect * 100f, WidgetText.clockWidth("0745", 100f, f), 0.01f)
+        assertEquals((4 * f.digitAspect + f.colonAspect) * 100f, WidgetText.clockWidth("07:45", 100f, f), 0.01f)
+        // Wider faces take more room at the same height.
+        assertTrue(WidgetText.clockWidth("0745", 100f, ClockFace.Geometric) > WidgetText.clockWidth("0745", 100f, f))
     }
 
     @Test fun packRowsWrapsByWidthAndCount() {

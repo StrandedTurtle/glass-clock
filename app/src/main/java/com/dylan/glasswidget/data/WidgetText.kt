@@ -22,13 +22,9 @@ object WidgetText {
         return DateTimeFormatter.ofPattern(pattern, Locale.ROOT).format(Instant.ofEpochMilli(epochMs).atZone(zone))
     }
 
-    // Width/height of the glass digit drawables (printed by tools/build_clock_digits.py).
-    const val DIGIT_ASPECT = 0.4014f
-    const val COLON_ASPECT = 0.1839f
-
-    /** Width of [text] in glass digits at a given height. */
-    fun clockWidth(text: String, heightDp: Float): Float =
-        text.sumOf { (if (it == ':') COLON_ASPECT else DIGIT_ASPECT).toDouble() }.toFloat() * heightDp
+    /** Width of [text] in [face]'s glass digits at a given height. */
+    fun clockWidth(text: String, heightDp: Float, face: ClockFace): Float =
+        text.sumOf { (if (it == ':') face.colonAspect else face.digitAspect).toDouble() }.toFloat() * heightDp
 
     /**
      * Greedily packs items (by estimated width) into rows no wider than [maxWidth], at most [perRow]

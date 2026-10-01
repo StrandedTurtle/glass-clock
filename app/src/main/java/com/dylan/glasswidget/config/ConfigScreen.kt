@@ -56,8 +56,10 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.dylan.glasswidget.R
+import com.dylan.glasswidget.data.CalendarLinks
 import com.dylan.glasswidget.data.CalendarRefreshWorker
 import com.dylan.glasswidget.data.CalendarRepository
+import com.dylan.glasswidget.data.ClockFace
 import com.dylan.glasswidget.data.ClockStyle
 import com.dylan.glasswidget.data.DatePreset
 import com.dylan.glasswidget.data.DeviceLocation
@@ -73,6 +75,7 @@ import com.dylan.glasswidget.data.WeatherDetail
 import com.dylan.glasswidget.data.WeatherRefreshWorker
 import com.dylan.glasswidget.data.WidgetAlignment
 import com.dylan.glasswidget.data.WidgetDataStore
+import com.dylan.glasswidget.data.WidgetText
 import com.dylan.glasswidget.widget.AppTargets
 import com.dylan.glasswidget.widget.ClockTicker
 import com.dylan.glasswidget.widget.GlassClockWidget
@@ -200,12 +203,18 @@ private fun LookSection(s: WidgetSettings, edit: Edit) = Section(stringResource(
     Label(stringResource(R.string.clock_style))
     Chips(
         listOf(
-            ClockStyle.Crystal to stringResource(R.string.style_crystal),
             ClockStyle.Glass to stringResource(R.string.style_glass),
             ClockStyle.Solid to stringResource(R.string.style_solid),
         ),
         selected = s.clockStyle,
     ) { v -> edit { it[WidgetPrefsKeys.CLOCK_STYLE] = v.key } }
+
+    if (s.clockStyle == ClockStyle.Glass) {
+        Label(stringResource(R.string.clock_face))
+        Chips(ClockFace.entries.map { it to it.label }, selected = s.clockFace) { f ->
+            edit { it[WidgetPrefsKeys.CLOCK_FACE] = f.key }
+        }
+    }
     Text(
         stringResource(R.string.style_glass_note),
         style = MaterialTheme.typography.bodyMedium,
@@ -379,36 +388,118 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
     Section(stringResource(R.string.section_calendar)) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        var message by remember { mutableStateOf<String?>(null) }
+        var permissionMessage by remember { mutableStateOf<String?>(null) }
+        var visible by remember { mutableStateOf<List<String>?>(null) }
+        var hasPermission by remember { mutableStateOf(CalendarRepository.hasPermission(context)) }
+        val data by WidgetDataStore.flow(context).collectAsState(initial = null)
 
-        fun enable() {
-            message = null
-            edit { it[WidgetPrefsKeys.SHOW_EVENTS] = true }
-            CalendarRefreshWorker.observe(context)
+        fun reload() {
             scope.launch {
-                withContext(Dispatchers.IO) { CalendarRefreshWorker.refreshAndRedraw(context) }
+                visible = withContext(Dispatchers.IO) { CalendarRepository.visibleCalendars(context) }
+                withContext(Dispatchers.IO) { CalendarRefreshWorker.refreshAndRedraw(context, fetchLinks = true) }
                 onEventsLoaded()
             }
         }
+        LaunchedEffect(hasPermission) {
+            visible = withContext(Dispatchers.IO) { CalendarRepository.visibleCalendars(context) }
+        }
 
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-            if (ok) enable() else message = context.getString(R.string.calendar_denied)
+            hasPermission = ok
+            if (ok) {
+                permissionMessage = null
+                edit { it[WidgetPrefsKeys.USE_DEVICE_CALENDARS] = true }
+                CalendarRefreshWorker.observe(context)
+                reload()
+            } else {
+                permissionMessage = context.getString(R.string.calendar_denied)
+            }
         }
 
         SwitchRow(stringResource(R.string.show_events), stringResource(R.string.show_events_body), s.showEvents) { on ->
-            when {
-                !on -> edit { it[WidgetPrefsKeys.SHOW_EVENTS] = false }
-                CalendarRepository.hasPermission(context) -> enable()
-                else -> permission.launch(Manifest.permission.READ_CALENDAR)
-            }
+            edit { it[WidgetPrefsKeys.SHOW_EVENTS] = on }
+            if (on) reload()
         }
-        if (s.showEvents) {
-            SwitchRow(stringResource(R.string.events_all_day), null, s.eventsAllDay) { on ->
-                edit { it[WidgetPrefsKeys.EVENTS_ALL_DAY] = on }
-            }
+        if (!s.showEvents) return@Section
+
+        // ---- Source 1: calendars synced into Android ----
+        Label(stringResource(R.string.cal_phone_title))
+        Hint(stringResource(R.string.cal_phone_body))
+        SwitchRow(stringResource(R.string.cal_phone_switch), null, s.useDeviceCalendars && hasPermission) { on ->
+            if (!on) edit { it[WidgetPrefsKeys.USE_DEVICE_CALENDARS] = false }
+            else if (hasPermission) { edit { it[WidgetPrefsKeys.USE_DEVICE_CALENDARS] = true }; reload() }
+            else permission.launch(Manifest.permission.READ_CALENDAR)
         }
-        message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (s.useDeviceCalendars && hasPermission) {
+            val names = visible
+            val upcoming = data?.events?.count { !it.fromLink } ?: 0
+            Hint(
+                when {
+                    names == null -> stringResource(R.string.cal_phone_checking)
+                    names.isEmpty() -> stringResource(R.string.cal_phone_none)
+                    else -> stringResource(R.string.cal_phone_found, names.size, names.joinToString(", "), upcoming)
+                }
+            )
+        }
+        permissionMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        // ---- Source 2: calendar links (.ics), e.g. Proton ----
+        Label(stringResource(R.string.cal_link_title))
+        Hint(stringResource(R.string.cal_link_body))
+        var text by remember(s.calendarLinks) { mutableStateOf(s.calendarLinks.joinToString("\n")) }
+        var status by remember { mutableStateOf<List<String>>(emptyList()) }
+        var checking by remember { mutableStateOf(false) }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text(stringResource(R.string.cal_link_hint)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+        )
+        Button(
+            enabled = !checking,
+            onClick = {
+                val links = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                edit { it[WidgetPrefsKeys.CALENDAR_LINKS] = links.joinToString("\n") }
+                checking = true
+                scope.launch {
+                    val now = System.currentTimeMillis()
+                    val zone = java.time.ZoneId.systemDefault()
+                    val use24 = android.text.format.DateFormat.is24HourFormat(context)
+                    status = links.map { url ->
+                        runCatching { CalendarLinks.fetch(url, now) }.fold(
+                            onSuccess = { events ->
+                                val next = WidgetText.pickEvent(events, now, zone, s.eventsAllDay)
+                                if (next == null) context.getString(R.string.cal_link_ok_none, events.size)
+                                else context.getString(
+                                    R.string.cal_link_ok, events.size,
+                                    WidgetText.eventWhen(
+                                        next, now, zone, use24,
+                                        context.getString(R.string.event_now),
+                                        context.getString(R.string.event_today),
+                                        context.getString(R.string.event_tomorrow),
+                                    ) + " · " + next.title,
+                                )
+                            },
+                            onFailure = { context.getString(R.string.cal_link_failed, it.message ?: it.javaClass.simpleName) },
+                        )
+                    }
+                    withContext(Dispatchers.IO) { CalendarRefreshWorker.refreshAndRedraw(context, fetchLinks = true) }
+                    checking = false
+                    onEventsLoaded()
+                }
+            },
+        ) { Text(stringResource(if (checking) R.string.cal_link_checking else R.string.cal_link_save)) }
+        status.forEach { Hint(it) }
+
+        SwitchRow(stringResource(R.string.events_all_day), null, s.eventsAllDay) { on ->
+            edit { it[WidgetPrefsKeys.EVENTS_ALL_DAY] = on }
+        }
     }
+
+@Composable
+private fun Hint(text: String) =
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
 private fun TapTargetSection(s: WidgetSettings, edit: Edit) = Section(stringResource(R.string.section_taps)) {

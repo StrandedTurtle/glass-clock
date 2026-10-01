@@ -103,4 +103,12 @@ data class CalendarEvent(
     val beginEpochMs: Long,
     val endEpochMs: Long,
     val allDay: Boolean,
-)
+    /** [DEVICE_SOURCE] for Android's calendar, or [Ics.sourceKey] of the calendar link it came from. */
+    val source: String = DEVICE_SOURCE,
+) {
+    val fromLink: Boolean get() = source != DEVICE_SOURCE
+
+    companion object {
+        const val DEVICE_SOURCE = "device"
+    }
+}

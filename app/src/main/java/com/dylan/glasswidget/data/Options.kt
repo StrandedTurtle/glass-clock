@@ -20,14 +20,15 @@ enum class TintMode(val key: String) {
     }
 }
 
-/** Glass and Crystal are drawn from images (kept on time by the minute ticker); Solid is a TextClock. */
+/** Glass is drawn from images (kept on time by the minute ticker) in a chosen [ClockFace]; Solid is a TextClock. */
 enum class ClockStyle(val key: String) {
-    Glass("glass"), Crystal("crystal"), Solid("solid");
+    Glass("glass"), Solid("solid");
 
-    val usesImages: Boolean get() = this != Solid
+    val usesImages: Boolean get() = this == Glass
 
     companion object {
-        fun from(key: String?) = entries.firstOrNull { it.key == key } ?: Glass
+        // "crystal" was the name of today's glass look while it was an alternative to the original.
+        fun from(key: String?) = if (key == "crystal") Glass else entries.firstOrNull { it.key == key } ?: Glass
     }
 }
 

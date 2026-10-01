@@ -12,6 +12,10 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.dylan.glasswidget.widget.ClockTicker
 import com.dylan.glasswidget.widget.GlassClockWidget
+import com.dylan.glasswidget.widget.WidgetSettings
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import java.time.Duration
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -36,14 +40,32 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
         private const val OBSERVER_NAME = "calendar_observer"
         private const val BOUNDARY_NAME = "widget_boundary"
 
-        /** Shared by every refresh path: events -> cache -> redraw -> schedule the next boundary. */
-        suspend fun refreshAndRedraw(context: Context) {
-            WidgetDataStore.saveEvents(context, CalendarRepository.upcoming(context))
+        /**
+         * Shared by every refresh path: events -> cache -> redraw -> schedule the next boundary.
+         * Phone calendars are re-read every time (cheap, local). Calendar links are only downloaded when
+         * [fetchLinks] (the 30-minute weather refresh, or settings); otherwise their cached events are kept.
+         */
+        suspend fun refreshAndRedraw(context: Context, fetchLinks: Boolean = false) {
+            val now = System.currentTimeMillis()
+            val links = configuredLinks(context)
+            val old = WidgetDataStore.load(context).events
+            val linkEvents = links.flatMap { url ->
+                val key = Ics.sourceKey(url)
+                val cached = old.filter { it.source == key }
+                if (fetchLinks) runCatching { CalendarLinks.fetch(url, now) }.getOrDefault(cached) else cached
+            }
+            WidgetDataStore.saveEvents(context, CalendarRepository.upcoming(context, now) + linkEvents)
             GlassClockWidget().updateAll(context)
             // Insurance: re-arm the minute ticker in case the system killed its alarm chain.
             ClockTicker.tick(context)
             scheduleBoundary(context, WidgetDataStore.load(context))
         }
+
+        /** Every calendar link any placed widget uses. */
+        private suspend fun configuredLinks(context: Context): List<String> =
+            GlanceAppWidgetManager(context).getGlanceIds(GlassClockWidget::class.java).flatMap { id ->
+                WidgetSettings.from(getAppWidgetState(context, PreferencesGlanceStateDefinition, id)).calendarLinks
+            }.map(Ics::normaliseUrl).distinct()
 
         /** Watch the calendar for changes. KEEP from the app; the worker itself appends its successor. */
         fun observe(context: Context, policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP) {

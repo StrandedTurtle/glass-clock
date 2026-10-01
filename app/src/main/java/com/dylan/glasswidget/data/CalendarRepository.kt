@@ -20,7 +20,7 @@ object CalendarRepository {
      * Instances from a day ago (so an all-day event covering today is included) to [aheadMs] ahead,
      * skipping hidden calendars and events you've declined. Empty without permission.
      */
-    fun upcoming(context: Context, nowMs: Long = System.currentTimeMillis(), aheadMs: Long = 2 * DAY_MS): List<CalendarEvent> {
+    fun upcoming(context: Context, nowMs: Long = System.currentTimeMillis(), aheadMs: Long = 7 * DAY_MS): List<CalendarEvent> {
         if (!hasPermission(context)) return emptyList()
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
             ContentUris.appendId(it, nowMs - DAY_MS)
@@ -48,6 +48,29 @@ object CalendarRepository {
                         }
                     }
                 }.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Names of the calendars Android shares with other apps ("Personal · you@gmail.com"), for showing
+     * in settings which calendars the widget can actually see. Null without permission.
+     */
+    fun visibleCalendars(context: Context): List<String>? {
+        if (!hasPermission(context)) return null
+        val projection = arrayOf(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CalendarContract.Calendars.ACCOUNT_NAME)
+        return runCatching {
+            context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI, projection,
+                "${CalendarContract.Calendars.VISIBLE} = 1", null, null,
+            )?.use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        val name = c.getString(0).orEmpty()
+                        val account = c.getString(1).orEmpty()
+                        add(if (account.isBlank() || account == name) name else "$name · $account")
+                    }
+                }
+            }.orEmpty()
         }.getOrDefault(emptyList())
     }
 

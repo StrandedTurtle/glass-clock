@@ -1,6 +1,9 @@
 package com.dylan.glasswidget.widget
 
 import androidx.datastore.preferences.core.Preferences
+import com.dylan.glasswidget.data.CalendarEvent
+import com.dylan.glasswidget.data.ClockFace
+import com.dylan.glasswidget.data.Ics
 import com.dylan.glasswidget.data.ClockStyle
 import com.dylan.glasswidget.data.DatePreset
 import com.dylan.glasswidget.data.GlassVariant
@@ -19,6 +22,7 @@ data class WidgetSettings(
     val dateApp: String? = null,
     val weatherApp: String? = null,
     val clockStyle: ClockStyle = ClockStyle.Glass,
+    val clockFace: ClockFace = ClockFace.Condensed,
     val variant: GlassVariant = GlassVariant.Soft,
     val tint: TintMode = TintMode.Frost,
     val alignment: WidgetAlignment = WidgetAlignment.Center,
@@ -36,6 +40,8 @@ data class WidgetSettings(
     val deviceLat: Double? = null,
     val deviceLon: Double? = null,
     val showEvents: Boolean = false,
+    val useDeviceCalendars: Boolean = true,
+    val calendarLinks: List<String> = emptyList(),
     val eventsAllDay: Boolean = true,
 ) {
     /** Where this widget wants weather for, or null if the user hasn't picked anywhere yet. */
@@ -49,12 +55,20 @@ data class WidgetSettings(
 
     val fahrenheit: Boolean get() = tempUnit == TempUnit.F
 
+    /** Cache tags of this widget's calendar links. */
+    val linkSources: Set<String> get() = calendarLinks.map(Ics::sourceKey).toSet()
+
+    /** Events from the sources this widget has switched on. */
+    fun visibleEvents(all: List<CalendarEvent>): List<CalendarEvent> =
+        all.filter { if (it.fromLink) it.source in linkSources else useDeviceCalendars }
+
     companion object {
         fun from(p: Preferences) = WidgetSettings(
             clockApp = p[WidgetPrefsKeys.CLOCK_APP_PACKAGE],
             dateApp = p[WidgetPrefsKeys.DATE_APP_PACKAGE],
             weatherApp = p[WidgetPrefsKeys.WEATHER_APP_PACKAGE],
             clockStyle = ClockStyle.from(p[WidgetPrefsKeys.CLOCK_STYLE]),
+            clockFace = ClockFace.from(p[WidgetPrefsKeys.CLOCK_FACE]),
             variant = GlassVariant.from(p[WidgetPrefsKeys.GLASS_VARIANT]),
             tint = TintMode.from(p[WidgetPrefsKeys.TINT_MODE]),
             alignment = WidgetAlignment.from(p[WidgetPrefsKeys.ALIGNMENT]),
@@ -72,6 +86,8 @@ data class WidgetSettings(
             deviceLat = p[WidgetPrefsKeys.DEVICE_LAT],
             deviceLon = p[WidgetPrefsKeys.DEVICE_LON],
             showEvents = p[WidgetPrefsKeys.SHOW_EVENTS] ?: false,
+            useDeviceCalendars = p[WidgetPrefsKeys.USE_DEVICE_CALENDARS] ?: true,
+            calendarLinks = p[WidgetPrefsKeys.CALENDAR_LINKS].orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() },
             eventsAllDay = p[WidgetPrefsKeys.EVENTS_ALL_DAY] ?: true,
         )
     }
