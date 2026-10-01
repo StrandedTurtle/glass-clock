@@ -10,6 +10,8 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import com.dylan.glasswidget.data.CalendarRefreshWorker
+import com.dylan.glasswidget.data.WidgetDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,12 +40,21 @@ object ClockTicker {
     /** Redraw now and keep ticking — or stop, if no placed widget uses glass digits. */
     suspend fun tick(context: Context) {
         val app = context.applicationContext
-        if (anyGlassWidget(app)) {
+        val widgets = placedSettings(app)
+        if (widgets.any { it.clockStyle.usesImages }) {
             _minute.value = currentMinute()
             GlassClockWidget().updateAll(app)
             scheduleNext(app)
         } else {
             cancel(app)
+        }
+        // Ticks only happen while the phone is awake, so this keeps calendar links fresh while you're
+        // using it without waking it otherwise. (Phone calendars update instantly via a change trigger.)
+        if (widgets.any { it.showEvents && it.calendarLinks.isNotEmpty() }) {
+            val fetched = WidgetDataStore.load(app).linksFetchedAtMs
+            if (System.currentTimeMillis() - fetched > CalendarRefreshWorker.LINK_REFRESH_MS) {
+                CalendarRefreshWorker.refreshLinksSoon(app)
+            }
         }
     }
 
@@ -55,13 +66,11 @@ object ClockTicker {
         }
     }
 
-    private suspend fun anyGlassWidget(context: Context): Boolean {
-        val ids = GlanceAppWidgetManager(context).getGlanceIds(GlassClockWidget::class.java)
-        return ids.any { id ->
+    private suspend fun placedSettings(context: Context): List<WidgetSettings> =
+        GlanceAppWidgetManager(context).getGlanceIds(GlassClockWidget::class.java).map { id ->
             val prefs: Preferences = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)
-            WidgetSettings.from(prefs).clockStyle.usesImages
+            WidgetSettings.from(prefs)
         }
-    }
 
     private fun scheduleNext(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return

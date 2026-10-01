@@ -464,7 +464,22 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
                 }) { Text(stringResource(R.string.cal_link_remove)) }
             }
         }
-        if (s.calendarLinks.isEmpty()) Hint(stringResource(R.string.cal_link_empty))
+        if (s.calendarLinks.isEmpty()) {
+            Hint(stringResource(R.string.cal_link_empty))
+        } else {
+            // Links can't tell us when they change, so show when they were last read and allow a manual refresh.
+            val fetched = data?.linksFetchedAtMs ?: 0L
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Hint(
+                    if (fetched == 0L) stringResource(R.string.cal_link_never)
+                    else stringResource(
+                        R.string.cal_link_updated,
+                        WidgetText.clock(fetched, java.time.ZoneId.systemDefault(), android.text.format.DateFormat.is24HourFormat(context)),
+                    ),
+                )
+                TextButton(onClick = { reload() }) { Text(stringResource(R.string.cal_link_refresh)) }
+            }
+        }
         var adding by remember { mutableStateOf(false) }
         OutlinedButton(onClick = { adding = true }) { Text(stringResource(R.string.cal_link_add)) }
         if (adding) {

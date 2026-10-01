@@ -11,11 +11,12 @@ Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use 
   images, redrawn each minute by an exact, non-waking alarm. Solid style is a system-font `TextClock`.
 - **One glass card**: date | weather icon and temperature, then condition, high/low, sunrise/sunset,
   feels like, rain chance, wind, humidity, UV and air quality, wrapping onto extra lines inside the same
-  glass, with your **next calendar event** as its own line in the same card.
+  glass. Your **next calendar event** sits above the clock as plain text, like the lockscreen top line.
 - **Calendar sources**: calendars synced into Android (Google, Xiaomi, Samsung, Etar, DAVx⁵…) and/or
   calendar links (.ics / webcal). Proton Calendar doesn't share its events with Android, so add its
   "Share with anyone" link (calendar.proton.me → Settings → Calendars → Share with anyone → Create link).
-  Repeating events, exceptions and moved occurrences are handled; links refresh every 30 minutes.
+  Repeating events, exceptions and moved occurrences are handled. Phone calendars update instantly;
+  links are re-read every 10 minutes while the phone is in use (30 otherwise), or on Refresh now.
 - **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
   wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
   simply lets the system wallpaper show through.

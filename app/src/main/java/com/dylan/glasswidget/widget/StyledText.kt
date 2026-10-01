@@ -106,7 +106,7 @@ fun DateText(context: Context, preset: DatePreset, sizeSp: Float, palette: Glass
     AndroidRemoteViews(views)
 }
 
-enum class LabelStyle { Normal, Secondary, Emphasis }
+enum class LabelStyle { Normal, Secondary, Emphasis, OnWallpaper }
 
 @Composable
 fun LabelText(
@@ -116,7 +116,12 @@ fun LabelText(
     palette: GlassPalette,
     style: LabelStyle = LabelStyle.Normal,
 ) {
-    val layout = if (style == LabelStyle.Emphasis) R.layout.label_text_medium else R.layout.label_text
+    val layout = when (style) {
+        LabelStyle.Emphasis -> R.layout.label_text_medium
+        // Straight on the wallpaper: light text gets a soft shadow; dark text stays clean.
+        LabelStyle.OnWallpaper -> if (palette.lightText) R.layout.label_text_shadow else R.layout.label_text
+        else -> R.layout.label_text
+    }
     val views = RemoteViews(context.packageName, layout).apply {
         setTextViewText(R.id.labelText, text)
         setTextViewTextSize(R.id.labelText, TypedValue.COMPLEX_UNIT_SP, sizeSp)

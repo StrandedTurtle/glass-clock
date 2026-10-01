@@ -91,6 +91,7 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
 
 private const val ITEM_GAP_DP = 12f
 private const val LINE_GAP_DP = 5f
+private const val EVENT_GAP_DP = 4f
 private const val PILL_PADDING_DP = 30f // 14dp each side + rim
 
 @Suppress("UNUSED_PARAMETER") // [minute] is a recomposition key: each tick re-runs this with the new time
@@ -142,15 +143,15 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         WidgetSize.Tall -> 3
         WidgetSize.Large -> 4
     }
-    // Your next event is a line in the same card, right under date and weather. When space is short the
-    // extra weather lines give way first; the event only goes if the clock would get really small.
+    // Your next event is a line of plain text above the clock, like the lockscreen's top line. When space
+    // is short the extra weather lines give way first; the event only goes if the clock would get tiny.
     var showEvent = event != null && size != WidgetSize.Compact
     var lines = packed.take((maxLines - if (showEvent) 1 else 0).coerceAtLeast(1))
     val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
-        val count = lines.size + if (showEvent) 1 else 0
-        val card = count * m.lineHeightDp + (count - 1) * LINE_GAP_DP + 16f
-        return minOf(heightDp - card - m.gapDp, widthDp / clockAspectWidth)
+        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + 16f
+        val eventLine = if (showEvent) m.lineHeightDp + EVENT_GAP_DP else 0f
+        return minOf(heightDp - card - m.gapDp - eventLine, widthDp / clockAspectWidth)
     }
     while (lines.size > 1 && digitHeight() < heightDp * 0.4f) lines = lines.dropLast(1)
     if (showEvent && digitHeight() < heightDp * 0.3f) showEvent = false
@@ -195,28 +196,27 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         horizontalAlignment = hAlign,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (showEvent && event != null) {
+            // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
+            EventLine(
+                context, palette, m, event,
+                if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event),
+                now, zone, use24h,
+            )
+            Spacer(GlanceModifier.height(EVENT_GAP_DP.dp))
+        }
         digits(GlanceModifier.fillMaxWidth().height(digitsDp.dp))
         Spacer(GlanceModifier.height(gap))
-        // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
-        val eventLine: @Composable (() -> Unit)? = if (showEvent && event != null) {
-            {
-                EventLine(
-                    context, palette, m, event,
-                    if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event),
-                    now, zone, use24h,
-                )
-            }
-        } else null
         InfoCard(
             context, s, palette, m, weather, location == null, dateIntent, weatherIntent,
-            lines.map { row -> row.map { items[it] } }, eventLine,
+            lines.map { row -> row.map { items[it] } },
         )
     }
 }
 
 /**
  * One glass card: "date | icon temperature" then the chosen details, continuing on the first line while
- * they fit; your next event on its own line; then any details that wrapped. Each part is its own tap.
+ * they fit, then any details that wrapped onto further lines. Date and weather are separate taps.
  */
 @Composable
 private fun InfoCard(
@@ -229,7 +229,6 @@ private fun InfoCard(
     dateIntent: Intent?,
     weatherIntent: Intent?,
     lines: List<List<DetailItem>>,
-    eventLine: (@Composable () -> Unit)?,
 ) {
     GlassCard(palette) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -244,10 +243,6 @@ private fun InfoCard(
                     }
                 }
             }
-        }
-        if (eventLine != null) {
-            Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
-            eventLine()
         }
         lines.drop(1).forEach { line ->
             Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
@@ -277,7 +272,7 @@ private fun DetailChip(context: Context, palette: GlassPalette, m: Metrics, item
     }
 }
 
-/** "📅 11:30  Dentist" as one line of the glass card; taps open the event (or your calendar app). */
+/** "11:30 • Dentist" as plain text on the wallpaper above the clock, like the lockscreen's top line. */
 @Composable
 private fun EventLine(
     context: Context,
@@ -289,23 +284,15 @@ private fun EventLine(
     zone: ZoneId,
     use24h: Boolean,
 ) {
+    val whenText = WidgetText.eventWhen(
+        e, now, zone, use24h,
+        context.getString(R.string.event_now),
+        context.getString(R.string.event_today),
+        context.getString(R.string.event_tomorrow),
+    )
+    val title = e.title.ifBlank { context.getString(R.string.event_untitled) }
     TapZone(intent) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GlassIcon(R.drawable.ic_d_event, m.iconDp - 1, palette)
-            Spacer(GlanceModifier.width(6.dp))
-            LabelText(
-                context,
-                WidgetText.eventWhen(
-                    e, now, zone, use24h,
-                    context.getString(R.string.event_now),
-                    context.getString(R.string.event_today),
-                    context.getString(R.string.event_tomorrow),
-                ),
-                m.pillSp, palette, LabelStyle.Secondary,
-            )
-            Spacer(GlanceModifier.width(6.dp))
-            LabelText(context, e.title.ifBlank { context.getString(R.string.event_untitled) }, m.pillSp, palette)
-        }
+        LabelText(context, "$whenText • $title", m.pillSp, palette, LabelStyle.OnWallpaper)
     }
 }
 

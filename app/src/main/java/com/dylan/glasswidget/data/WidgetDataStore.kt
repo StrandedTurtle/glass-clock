@@ -2,6 +2,7 @@ package com.dylan.glasswidget.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,8 @@ private val Context.widgetDataStore by preferencesDataStore(name = "weather_cach
 data class WidgetData(
     val weather: WeatherStore = WeatherStore(),
     val events: List<CalendarEvent> = emptyList(),
+    /** When calendar links were last downloaded (0 = never). */
+    val linksFetchedAtMs: Long = 0,
 )
 
 /**
@@ -23,10 +26,15 @@ data class WidgetData(
 object WidgetDataStore {
     private val KEY_WEATHER = stringPreferencesKey("weather_store_json")
     private val KEY_EVENTS = stringPreferencesKey("events_json")
+    private val KEY_LINKS_FETCHED = longPreferencesKey("links_fetched_at")
 
     fun flow(context: Context): Flow<WidgetData> =
         context.applicationContext.widgetDataStore.data.map {
-            WidgetData(WeatherStoreCodec.decode(it[KEY_WEATHER]), WeatherStoreCodec.decodeEvents(it[KEY_EVENTS]))
+            WidgetData(
+                WeatherStoreCodec.decode(it[KEY_WEATHER]),
+                WeatherStoreCodec.decodeEvents(it[KEY_EVENTS]),
+                it[KEY_LINKS_FETCHED] ?: 0,
+            )
         }
 
     suspend fun load(context: Context): WidgetData = flow(context).first()
@@ -39,7 +47,10 @@ object WidgetDataStore {
         }
     }
 
-    suspend fun saveEvents(context: Context, events: List<CalendarEvent>) {
-        context.applicationContext.widgetDataStore.edit { it[KEY_EVENTS] = WeatherStoreCodec.encodeEvents(events) }
+    suspend fun saveEvents(context: Context, events: List<CalendarEvent>, linksFetchedAtMs: Long? = null) {
+        context.applicationContext.widgetDataStore.edit {
+            it[KEY_EVENTS] = WeatherStoreCodec.encodeEvents(events)
+            if (linksFetchedAtMs != null) it[KEY_LINKS_FETCHED] = linksFetchedAtMs
+        }
     }
 }

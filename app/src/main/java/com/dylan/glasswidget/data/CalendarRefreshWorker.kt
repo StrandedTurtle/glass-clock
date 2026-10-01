@@ -29,7 +29,7 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
     CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        refreshAndRedraw(applicationContext)
+        refreshAndRedraw(applicationContext, fetchLinks = inputData.getBoolean(KEY_FETCH_LINKS, false))
         // A content trigger fires once; queue the next watcher behind this run.
         if (inputData.getBoolean(KEY_OBSERVER, false)) observe(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
         return Result.success()
@@ -37,6 +37,20 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
 
     companion object {
         private const val KEY_OBSERVER = "observer"
+        private const val KEY_FETCH_LINKS = "fetch_links"
+        private const val LINKS_NAME = "calendar_links_refresh"
+
+        /** Calendar links can't notify us of changes, so they're re-downloaded this often while the phone is in use. */
+        const val LINK_REFRESH_MS = 10 * 60_000L
+
+        /** Re-download calendar links now (needs a connection; one at a time). */
+        fun refreshLinksSoon(context: Context) {
+            val request = OneTimeWorkRequestBuilder<CalendarRefreshWorker>()
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+                .setInputData(workDataOf(KEY_FETCH_LINKS to true))
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(LINKS_NAME, ExistingWorkPolicy.KEEP, request)
+        }
         private const val OBSERVER_NAME = "calendar_observer"
         private const val BOUNDARY_NAME = "widget_boundary"
 
@@ -54,7 +68,10 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
                 val cached = old.filter { it.source == key }
                 if (fetchLinks) runCatching { CalendarLinks.fetch(url, now) }.getOrDefault(cached) else cached
             }
-            WidgetDataStore.saveEvents(context, CalendarRepository.upcoming(context, now) + linkEvents)
+            WidgetDataStore.saveEvents(
+                context, CalendarRepository.upcoming(context, now) + linkEvents,
+                linksFetchedAtMs = if (fetchLinks && links.isNotEmpty()) now else null,
+            )
             GlassClockWidget().updateAll(context)
             // Insurance: re-arm the minute ticker in case the system killed its alarm chain.
             ClockTicker.tick(context)

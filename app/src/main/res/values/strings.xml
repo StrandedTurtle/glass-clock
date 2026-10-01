@@ -106,11 +106,11 @@
     <string name="refresh_now">Refresh weather now</string>
 
     <string name="show_events">Show next event</string>
-    <string name="show_events_body">Your next event gets its own line in the glass card.</string>
+    <string name="show_events_body">Your next event shows as a line of text above the clock.</string>
     <string name="events_all_day">Include all-day events</string>
     <string name="calendar_denied">Calendar permission denied, so phone calendars can’t be read</string>
     <string name="cal_how_title">How calendars work</string>
-    <string name="cal_how_body">The widget can read events from two places.\n\nPhone calendars: calendars that apps sync into Android itself, like Google Calendar, the Xiaomi or Samsung calendar, Etar, DAVx⁵ or ICSx⁵.\n\nCalendar links: an .ics or webcal link to a calendar. Proton Calendar doesn’t share its events with Android, so this is the way to show them. Links are refreshed every 30 minutes.</string>
+    <string name="cal_how_body">The widget can read events from two places.\n\nPhone calendars: calendars that apps sync into Android itself, like Google Calendar, the Xiaomi or Samsung calendar, Etar, DAVx⁵ or ICSx⁵.\n\nCalendar links: an .ics or webcal link to a calendar. Proton Calendar doesn’t share its events with Android, so this is the way to show them.\n\nPhone calendars update the widget as soon as they change. A link can’t tell the widget it changed, so it’s re-read every 10 minutes while you’re using the phone (and every 30 minutes otherwise), or straight away with Refresh now.</string>
     <string name="cal_phone_switch">Use phone calendars</string>
     <string name="cal_phone_sub">Needs calendar permission</string>
     <string name="cal_phone_checking">Checking which calendars are on this phone…</string>
@@ -121,6 +121,9 @@
     <string name="cal_link_empty">No links yet. Add your Proton Calendar here.</string>
     <string name="cal_link_item">%1$s · %2$d upcoming this week</string>
     <string name="cal_link_remove">Remove</string>
+    <string name="cal_link_updated">Links last read at %1$s</string>
+    <string name="cal_link_never">Links not read yet</string>
+    <string name="cal_link_refresh">Refresh now</string>
     <string name="cal_link_add">Add calendar link</string>
     <string name="cal_link_steps">For Proton Calendar: on calendar.proton.me open Settings → Calendars → choose the calendar → Share with anyone → Create link (full view), then copy the link and paste it here. Any .ics or webcal link works.</string>
     <string name="cal_link_hint">Calendar link</string>
