@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Solid digits: the same outlines without glass layers, auto-sized to fill the box the widget gives it.
-     Formats, colour and gravity are set per render from the widget settings. -->
+<!-- Solid clock: a plain TextClock in the system font (MiSans on HyperOS). It ticks natively, so it is
+     always exact even if background work is blocked. Auto-sized to the box the widget gives it. -->
 <TextClock xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clockText"
     android:layout_width="match_parent"
@@ -9,10 +9,11 @@
     android:autoSizeMinTextSize="12sp"
     android:autoSizeStepGranularity="1sp"
     android:autoSizeTextType="uniform"
-    android:fontFamily="@font/solid_digits"
+    android:fontFamily="sans-serif-condensed"
     android:format12Hour="hmm"
     android:format24Hour="HHmm"
     android:gravity="center"
     android:includeFontPadding="false"
     android:maxLines="1"
-    android:textColor="#FFFFFFFF" />
+    android:textColor="#FFFFFFFF"
+    android:textStyle="bold" />

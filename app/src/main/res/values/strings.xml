@@ -18,8 +18,6 @@
 
     <!-- Widget lines -->
     <string name="high_low">↑%1$s ↓%2$s</string>
-    <string name="sunrise_at">Sunrise %1$s</string>
-    <string name="sunset_at">Sunset %1$s</string>
     <string name="feels_like">Feels %1$s</string>
     <string name="aqi">AQI %1$d</string>
     <string name="percent">%1$d%%</string>
@@ -55,7 +53,8 @@
 
     <string name="clock_style">Clock</string>
     <string name="style_glass">Glass</string>
-    <string name="style_solid">Solid</string>
+    <string name="style_glass_note">Glass digits are redrawn by the app every minute, so turn on Autostart and unrestricted battery below. Solid uses the system font and is always exact.</string>
+    <string name="style_solid">Solid (system font)</string>
     <string name="glass_variant">Glass</string>
     <string name="variant_soft">Frosted</string>
     <string name="variant_clear">Clear</string>

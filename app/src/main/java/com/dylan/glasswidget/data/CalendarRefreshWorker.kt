@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.dylan.glasswidget.widget.ClockTicker
 import com.dylan.glasswidget.widget.GlassClockWidget
 import java.time.Duration
 import java.time.ZoneId
@@ -39,6 +40,8 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
         suspend fun refreshAndRedraw(context: Context) {
             WidgetDataStore.saveEvents(context, CalendarRepository.upcoming(context))
             GlassClockWidget().updateAll(context)
+            // Insurance: re-arm the minute ticker in case the system killed its alarm chain.
+            ClockTicker.tick(context)
             scheduleBoundary(context, WidgetDataStore.load(context))
         }
 

@@ -67,4 +67,29 @@ class WidgetTextTest {
         // nothing else: local midnight (23:00Z at UTC+1)
         assertEquals(at("2026-10-01T23:00:00Z"), WidgetText.nextBoundary(emptyList(), emptyList(), now, zone))
     }
+
+    @Test fun clockTextVariants() {
+        val t = at("2026-10-01T06:45:00Z") // 07:45 local
+        assertEquals("0745", WidgetText.clockText(t, zone, use24h = true, colon = false))
+        assertEquals("07:45", WidgetText.clockText(t, zone, use24h = true, colon = true))
+        assertEquals("745", WidgetText.clockText(t, zone, use24h = false, colon = false))
+        val pm = at("2026-10-01T12:05:00Z") // 13:05 local
+        assertEquals("1:05", WidgetText.clockText(pm, zone, use24h = false, colon = true))
+        assertEquals("1305", WidgetText.clockText(pm, zone, use24h = true, colon = false))
+    }
+
+    @Test fun clockWidthUsesDigitAndColonAspects() {
+        assertEquals(4 * WidgetText.DIGIT_ASPECT * 100f, WidgetText.clockWidth("0745", 100f), 0.01f)
+        assertEquals((4 * WidgetText.DIGIT_ASPECT + WidgetText.COLON_ASPECT) * 100f, WidgetText.clockWidth("07:45", 100f), 0.01f)
+    }
+
+    @Test fun packRowsWrapsByWidthAndCount() {
+        // 3 fit in 100 (30 + 5 + 30 + 5 + 30 = 100), the 4th wraps.
+        assertEquals(listOf(listOf(0, 1, 2), listOf(3)), WidgetText.packRows(listOf(30f, 30f, 30f, 30f), 100f, 5f))
+        // An item wider than the row still gets a row of its own.
+        assertEquals(listOf(listOf(0), listOf(1)), WidgetText.packRows(listOf(150f, 10f), 100f, 5f).let { listOf(it[0], it[1]) })
+        // Count cap.
+        assertEquals(listOf(listOf(0, 1), listOf(2, 3), listOf(4)), WidgetText.packRows(List(5) { 1f }, 100f, 1f, perRow = 2))
+        assertEquals(emptyList<List<Int>>(), WidgetText.packRows(emptyList(), 100f, 5f))
+    }
 }

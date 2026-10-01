@@ -20,7 +20,6 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -32,7 +31,6 @@ import com.dylan.glasswidget.data.CalendarEvent
 import com.dylan.glasswidget.data.CalendarRepository
 import com.dylan.glasswidget.data.HourMode
 import com.dylan.glasswidget.data.WeatherCondition
-import com.dylan.glasswidget.data.WeatherDetail
 import com.dylan.glasswidget.data.WeatherSnapshot
 import com.dylan.glasswidget.data.WidgetAlignment
 import com.dylan.glasswidget.data.WidgetData
@@ -46,7 +44,7 @@ class GlassClockWidget : GlanceAppWidget() {
 
     // Exact: lay out for the real size the launcher gives (one composition per orientation), so the
     // digits fill the space like the lockscreen clock and the settings preview matches pixel for pixel.
-    // WidgetSize then picks one of four layouts from that height.
+    // WidgetSize then picks how many pills fit from that height.
     override val sizeMode = SizeMode.Exact
 
     // Per-placed-widget settings live in Glance's own per-instance Preferences state.
@@ -58,31 +56,44 @@ class GlassClockWidget : GlanceAppWidget() {
         provideContent {
             // Collected, not read once, so a refresh landing while a session is alive still shows up.
             val data by WidgetDataStore.flow(context).collectAsState(initial)
+            // Every minute tick recomposes, so the glass digits show the new time.
+            val minute by ClockTicker.minute.collectAsState()
             val settings = WidgetSettings.from(currentState<Preferences>())
-            GlassClockContent(context, appWidgetId, settings, data)
+            GlassClockContent(context, appWidgetId, settings, data, minute)
         }
     }
 }
 
 /** Text and icon sizes per breakpoint, times the user's text-size setting. */
-private data class Metrics(val pillSp: Float, val iconDp: Int, val topSp: Float, val gapDp: Int) {
+private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float) {
+    /** Rough rendered height of one pill, for sharing the height out (text + padding + rim). */
+    val pillHeightDp: Float get() = pillSp * 1.3f + 16f
+
+    /** Rough width of a detail item: icon, gap, then the text in the system font. */
+    fun itemWidthDp(text: String): Float = (iconDp - 1) + 4f + text.length * pillSp * 0.56f
+
     companion object {
         fun of(size: WidgetSize, scale: Float): Metrics {
             val base = when (size) {
-                WidgetSize.Compact -> Metrics(11f, 13, 11f, 4)
-                WidgetSize.Standard -> Metrics(13f, 15, 12.5f, 6)
-                WidgetSize.Tall -> Metrics(13.5f, 15, 13f, 6)
-                WidgetSize.Large -> Metrics(14f, 16, 13.5f, 8)
+                WidgetSize.Compact -> Metrics(11f, 13, 4f)
+                WidgetSize.Standard -> Metrics(13f, 15, 6f)
+                WidgetSize.Tall -> Metrics(13.5f, 15, 6f)
+                WidgetSize.Large -> Metrics(14f, 16, 7f)
             }
-            return base.copy(pillSp = base.pillSp * scale, iconDp = (base.iconDp * scale).toInt(), topSp = base.topSp * scale)
+            return base.copy(pillSp = base.pillSp * scale, iconDp = (base.iconDp * scale).toInt())
         }
     }
 }
 
+private const val ITEM_GAP_DP = 12f
+private const val PILL_PADDING_DP = 30f // 14dp each side + rim
+
+@Suppress("UNUSED_PARAMETER") // [minute] is a recomposition key: each tick re-runs this with the new time
 @Composable
-private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSettings, data: WidgetData) {
+private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSettings, data: WidgetData, minute: Long) {
+    val widthDp = LocalSize.current.width.value - 8f   // minus the root padding
+    val heightDp = LocalSize.current.height.value - 8f
     val size = WidgetSize.fromHeightDp(LocalSize.current.height.value)
-    val widthDp = LocalSize.current.width.value
     val m = Metrics.of(size, s.textScale)
     val palette = GlassPalette.of(context, s.tint, s.variant)
 
@@ -93,6 +104,7 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         HourMode.H12 -> false
         HourMode.System -> DateFormat.is24HourFormat(context)
     }
+    val clockText = WidgetText.clockText(now, zone, use24h, s.showColon)
 
     val location = s.location
     val weather: WeatherSnapshot? = location?.let { data.weather.entries[it.key] }
@@ -107,77 +119,52 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         if (location == null) AppTargets.configIntent(context, appWidgetId)
         else AppTargets.launchIntent(context, Zone.Weather, s.weatherApp)
 
+    // ---- Share the height out: pills first, the digits take what's left ------------------------
+    val items = weather?.let { detailItems(context, it, s, now, zone, use24h) }.orEmpty()
+    val maxPillContent = widthDp - PILL_PADDING_DP
+    val packed = WidgetText.packRows(items.map { m.itemWidthDp(it.text) }, maxPillContent, ITEM_GAP_DP)
+    // How many pills fit under the main one: Glance also caps the root column at 10 children.
+    val extraRows = when (size) {
+        WidgetSize.Compact, WidgetSize.Standard -> 0
+        WidgetSize.Tall -> 2
+        WidgetSize.Large -> 3
+    }
+    val showEvent = event != null && extraRows > 0
+    var detailRows = packed.take(extraRows - if (showEvent) 1 else 0)
+    val clockAspectWidth = WidgetText.clockWidth(clockText, 1f)
+    fun digitHeight(rows: Int): Float {
+        val pills = (1 + rows) * (m.pillHeightDp + m.gapDp)
+        return minOf(heightDp - pills, widthDp / clockAspectWidth)
+    }
+    // Never let the pills squeeze the clock below ~40% of the widget.
+    while (detailRows.isNotEmpty() && digitHeight(detailRows.size + if (showEvent) 1 else 0) < heightDp * 0.4f) {
+        detailRows = detailRows.dropLast(1)
+    }
+    val eventRows = if (showEvent) 1 else 0
+    val digitsDp = digitHeight(detailRows.size + eventRows).coerceAtLeast(24f)
+
     val hAlign = if (s.alignment == WidgetAlignment.Center) Alignment.CenterHorizontally else Alignment.Start
+    val gap = m.gapDp.dp
 
     val digits: @Composable (GlanceModifier) -> Unit = { mod ->
         TapZone(clockIntent, mod) {
-            GlassDigits(context, s.clockStyle, s.hourMode, s.showColon, s.alignment, palette, GlanceModifier.fillMaxSize())
+            ClockDigits(
+                context, s.clockStyle, clockText, WidgetText.clock(now, zone, use24h),
+                s.hourMode, s.showColon, s.alignment, palette, GlanceModifier.fillMaxSize(),
+            )
         }
     }
-    val mainPill: @Composable () -> Unit = {
-        MainPill(context, s, palette, m, weather, location == null, dateIntent, weatherIntent, roomForCondition = widthDp >= 300f)
-    }
-    val details = weather?.let { detailItems(context, it, s) }.orEmpty()
-    val detailsPill: @Composable () -> Unit = {
-        TapZone(weatherIntent) {
-            GlassPill(palette) {
-                details.take(4).forEachIndexed { i, item ->
-                    if (i > 0) Spacer(GlanceModifier.width(12.dp))
-                    GlassIcon(item.icon, m.iconDp - 1, palette)
-                    Spacer(GlanceModifier.width(4.dp))
-                    LabelText(context, item.text, m.pillSp - 0.5f, palette)
-                }
-            }
-        }
-    }
-    val eventPill: @Composable (CalendarEvent) -> Unit = { e ->
-        TapZone(CalendarRepository.viewIntent(e)) {
-            GlassPill(palette) {
-                GlassIcon(R.drawable.ic_d_event, m.iconDp - 1, palette)
-                Spacer(GlanceModifier.width(6.dp))
-                LabelText(
-                    context,
-                    WidgetText.eventWhen(
-                        e, now, zone, use24h,
-                        context.getString(R.string.event_now),
-                        context.getString(R.string.event_today),
-                        context.getString(R.string.event_tomorrow),
-                    ),
-                    m.pillSp - 0.5f, palette, LabelStyle.Secondary,
-                )
-                Spacer(GlanceModifier.width(6.dp))
-                LabelText(context, e.title.ifBlank { context.getString(R.string.event_untitled) }, m.pillSp - 0.5f, palette)
-            }
-        }
-    }
-    val sun = weather?.takeIf { WeatherDetail.SunTimes in s.details }?.let { WidgetText.nextSunEvent(it.sunEvents, now) }
-    val topLine: @Composable () -> Unit = {
-        if (sun != null) {
-            TapZone(weatherIntent) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    GlassIcon(if (sun.sunrise) R.drawable.ic_d_sunrise else R.drawable.ic_d_sunset, m.iconDp - 1, palette)
-                    Spacer(GlanceModifier.width(5.dp))
-                    LabelText(
-                        context,
-                        context.getString(
-                            if (sun.sunrise) R.string.sunrise_at else R.string.sunset_at,
-                            WidgetText.clock(sun.atEpochMs, zone, use24h),
-                        ),
-                        m.topSp, palette, LabelStyle.OnWallpaper,
-                    )
-                }
-            }
-        }
-    }
-    val gap = m.gapDp.dp
 
-    when (size) {
+    if (size == WidgetSize.Compact) {
         // 3×1: digits beside a two-line pill.
-        WidgetSize.Compact -> Row(
-            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp),
+        val compactPill = 92f
+        val compactDigits = minOf(heightDp, (widthDp - compactPill - 8f) / clockAspectWidth).coerceAtLeast(20f)
+        Row(
+            modifier = GlanceModifier.fillMaxSize().padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = hAlign,
         ) {
-            digits(GlanceModifier.defaultWeight().fillMaxHeight())
+            digits(GlanceModifier.width((compactDigits * clockAspectWidth).dp).height(compactDigits.dp))
             Spacer(GlanceModifier.width(8.dp))
             GlassPill(palette, compact = true) {
                 Column {
@@ -187,32 +174,25 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
                 }
             }
         }
+        return
+    }
 
-        // 4×2 and up: lockscreen stack — sun line, big glass digits, then floating pills.
-        else -> Column(
-            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalAlignment = hAlign,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (size != WidgetSize.Standard && sun != null) {
-                topLine()
-                Spacer(GlanceModifier.height(4.dp))
-            }
-            digits(GlanceModifier.fillMaxWidth().defaultWeight())
+    // 4×2 and up: lockscreen stack — big glass digits, then floating pills.
+    Column(
+        modifier = GlanceModifier.fillMaxSize().padding(4.dp),
+        horizontalAlignment = hAlign,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        digits(GlanceModifier.fillMaxWidth().height(digitsDp.dp))
+        Spacer(GlanceModifier.height(gap))
+        MainPill(context, s, palette, m, weather, location == null, dateIntent, weatherIntent, roomForCondition = widthDp >= 290f)
+        detailRows.forEach { row ->
             Spacer(GlanceModifier.height(gap))
-            mainPill()
-            when (size) {
-                WidgetSize.Tall -> {
-                    // One extra pill: your next event when there is one, else the weather details.
-                    if (event != null) { Spacer(GlanceModifier.height(gap)); eventPill(event) }
-                    else if (details.isNotEmpty()) { Spacer(GlanceModifier.height(gap)); detailsPill() }
-                }
-                WidgetSize.Large -> {
-                    if (details.isNotEmpty()) { Spacer(GlanceModifier.height(gap)); detailsPill() }
-                    if (event != null) { Spacer(GlanceModifier.height(gap)); eventPill(event) }
-                }
-                else -> Unit
-            }
+            DetailPill(context, palette, m, row.map { items[it] }, weatherIntent)
+        }
+        if (showEvent && event != null) {
+            Spacer(GlanceModifier.height(gap))
+            EventPill(context, palette, m, event, now, zone, use24h)
         }
     }
 }
@@ -242,6 +222,53 @@ private fun MainPill(
                     LabelText(context, extras, m.pillSp, palette, LabelStyle.Secondary)
                 }
             }
+        }
+    }
+}
+
+/** One row of detail items. Each item is a single child, so Glance's 10-per-row cap is never hit. */
+@Composable
+private fun DetailPill(context: Context, palette: GlassPalette, m: Metrics, row: List<DetailItem>, weatherIntent: Intent?) {
+    TapZone(weatherIntent) {
+        GlassPill(palette) {
+            row.forEachIndexed { i, item ->
+                if (i > 0) Spacer(GlanceModifier.width(ITEM_GAP_DP.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GlassIcon(item.icon, m.iconDp - 1, palette)
+                    Spacer(GlanceModifier.width(4.dp))
+                    LabelText(context, item.text, m.pillSp, palette)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventPill(
+    context: Context,
+    palette: GlassPalette,
+    m: Metrics,
+    e: CalendarEvent,
+    now: Long,
+    zone: ZoneId,
+    use24h: Boolean,
+) {
+    TapZone(CalendarRepository.viewIntent(e)) {
+        GlassPill(palette) {
+            GlassIcon(R.drawable.ic_d_event, m.iconDp - 1, palette)
+            Spacer(GlanceModifier.width(6.dp))
+            LabelText(
+                context,
+                WidgetText.eventWhen(
+                    e, now, zone, use24h,
+                    context.getString(R.string.event_now),
+                    context.getString(R.string.event_today),
+                    context.getString(R.string.event_tomorrow),
+                ),
+                m.pillSp, palette, LabelStyle.Secondary,
+            )
+            Spacer(GlanceModifier.width(6.dp))
+            LabelText(context, e.title.ifBlank { context.getString(R.string.event_untitled) }, m.pillSp, palette)
         }
     }
 }

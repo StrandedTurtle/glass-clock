@@ -3,12 +3,13 @@
 A single Android home-screen widget styled after HyperOS 4's glass lockscreen clock, built to replace
 Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use it).
 
-- **Glass digits**: a bundled COLRv1 colour font (heavy condensed numerals derived from Anton) with a
-  frosted body, bright rim and top highlight. It's a real `TextClock`, so it ticks without the app
-  running, and it auto-sizes to fill whatever space the launcher gives the widget.
+- **Glass digits**: heavy condensed numerals (derived from Anton) drawn as vector images with a frosted
+  body, bright rim and top highlight, sized to fill whatever space the launcher gives the widget.
+  Launchers ignore custom fonts in widgets, so the digits are images, redrawn each minute by an exact,
+  non-waking alarm. Solid style is a system-font `TextClock` that ticks by itself.
 - **Floating glass pills**: date | weather icon, temperature, condition and high/low; a details pill
   (feels like, rain chance, wind, humidity, UV, air quality); and your **next calendar event**.
-  A lockscreen-style *Sunrise 6:59* line sits above the clock.
+  Every detail you switch on shows, flowing onto as many stacked pills as the widget height allows.
 - **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
   wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
   simply lets the system wallpaper show through.
@@ -59,9 +60,11 @@ HyperOS kills background apps aggressively. In the app's settings screen use the
 
 - **Real backdrop blur is not possible** for a widget: the launcher composites it, and apps can't read
   the wallpaper on Android 13+. The glass is layered translucency, as dense as legibility allows. The
-  frost strength lives in `tools/build_clock_font.py` (digit layers) and `tools/gen_resources.py` (pills).
-- The digit font is generated: `pip install fonttools skia-pathops`, then `python3 tools/build_clock_font.py`.
-  COLRv1 renders natively on Android 13+; older versions fall back to plain digits.
+  frost strength lives in `tools/build_clock_digits.py` (digit layers) and `tools/gen_resources.py` (pills).
+- The digit drawables are generated: `pip install fonttools skia-pathops`, then
+  `python3 tools/build_clock_digits.py`.
+- Why not a font: launchers inflate widgets with a restricted context, and TextView ignores custom font
+  resources there, so a custom-font TextClock quietly falls back to the system font on the home screen.
 - Layout: `SizeMode.Exact`, so the widget lays out for its real size. It picks one of four arrangements by
   height (short, standard, tall, large), and the preview in settings renders the same thing.
 - Weather and calendar events share one cache. Workers write it: a 30-minute weather refresh, a calendar

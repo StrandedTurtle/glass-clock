@@ -3,6 +3,7 @@ package com.dylan.glasswidget.widget
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.glance.GlanceModifier
@@ -14,8 +15,9 @@ import com.dylan.glasswidget.data.HourMode
 import com.dylan.glasswidget.data.WidgetAlignment
 
 /**
- * All widget text is a real TextView/TextClock wrapped in Glance's AndroidRemoteViews: Glance's own
- * Text can't take a font, and the system keeps a TextClock ticking without our process running.
+ * Widget text is real TextViews/TextClocks wrapped in Glance's AndroidRemoteViews, in the system font.
+ * (Launchers inflate widgets in a restricted context where custom fonts are ignored — which is why the
+ * glass clock is drawn from images instead.)
  */
 
 private fun RemoteViews.color(id: Int, day: Int, night: Int) {
@@ -35,27 +37,66 @@ internal fun clockFormats(hourMode: HourMode, colon: Boolean): Pair<String, Stri
     }
 }
 
-/** The big glass digits. They auto-size to fill [modifier]'s box, so give it a fixed height. */
+private val GLYPH_VIEWS = intArrayOf(R.id.glyph0, R.id.glyph1, R.id.glyph2, R.id.glyph3, R.id.glyph4)
+
+private val LIGHT_GLYPHS = intArrayOf(
+    R.drawable.clock_light_0, R.drawable.clock_light_1, R.drawable.clock_light_2, R.drawable.clock_light_3,
+    R.drawable.clock_light_4, R.drawable.clock_light_5, R.drawable.clock_light_6, R.drawable.clock_light_7,
+    R.drawable.clock_light_8, R.drawable.clock_light_9,
+)
+private val DARK_GLYPHS = intArrayOf(
+    R.drawable.clock_dark_0, R.drawable.clock_dark_1, R.drawable.clock_dark_2, R.drawable.clock_dark_3,
+    R.drawable.clock_dark_4, R.drawable.clock_dark_5, R.drawable.clock_dark_6, R.drawable.clock_dark_7,
+    R.drawable.clock_dark_8, R.drawable.clock_dark_9,
+)
+
+private fun glyphRes(c: Char, dark: Boolean): Int = when {
+    c == ':' -> if (dark) R.drawable.clock_dark_colon else R.drawable.clock_light_colon
+    c.isDigit() -> (if (dark) DARK_GLYPHS else LIGHT_GLYPHS)[c - '0']
+    else -> 0
+}
+
+/**
+ * The big clock. Glass: [text] ("0745") drawn from the glass digit images, kept current by
+ * [ClockTicker]. Solid: a system-font TextClock that ticks by itself. Give [modifier] a fixed height.
+ */
 @Composable
-fun GlassDigits(
+fun ClockDigits(
     context: Context,
     style: ClockStyle,
+    text: String,
+    spoken: String,
     hourMode: HourMode,
     colon: Boolean,
     alignment: WidgetAlignment,
     palette: GlassPalette,
     modifier: GlanceModifier,
 ) {
-    val layout = if (style == ClockStyle.Glass) R.layout.textclock_glass else R.layout.textclock_solid
-    val (f12, f24) = clockFormats(hourMode, colon)
-    val views = RemoteViews(context.packageName, layout).apply {
-        setCharSequence(R.id.clockText, "setFormat12Hour", f12)
-        setCharSequence(R.id.clockText, "setFormat24Hour", f24)
-        setInt(
-            R.id.clockText, "setGravity",
-            if (alignment == WidgetAlignment.Center) Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL,
-        )
-        color(R.id.clockText, palette.digitDay, palette.digitNight)
+    val gravity =
+        if (alignment == WidgetAlignment.Center) Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL
+    val views = if (style == ClockStyle.Glass) {
+        RemoteViews(context.packageName, R.layout.clock_digits).apply {
+            GLYPH_VIEWS.forEachIndexed { i, id ->
+                val res = text.getOrNull(i)?.let { glyphRes(it, palette.darkGlass) } ?: 0
+                if (res == 0) {
+                    setViewVisibility(id, View.GONE)
+                } else {
+                    setImageViewResource(id, res)
+                    setViewVisibility(id, View.VISIBLE)
+                    setInt(id, "setImageAlpha", palette.glassAlpha)
+                }
+            }
+            setInt(R.id.clockRow, "setGravity", gravity)
+            setContentDescription(R.id.clockRow, spoken)
+        }
+    } else {
+        val (f12, f24) = clockFormats(hourMode, colon)
+        RemoteViews(context.packageName, R.layout.textclock_solid).apply {
+            setCharSequence(R.id.clockText, "setFormat12Hour", f12)
+            setCharSequence(R.id.clockText, "setFormat24Hour", f24)
+            setInt(R.id.clockText, "setGravity", gravity)
+            color(R.id.clockText, palette.textDay, palette.textNight)
+        }
     }
     AndroidRemoteViews(views, modifier)
 }
@@ -71,7 +112,7 @@ fun DateText(context: Context, preset: DatePreset, sizeSp: Float, palette: Glass
     AndroidRemoteViews(views)
 }
 
-enum class LabelStyle { Normal, Secondary, Emphasis, OnWallpaper }
+enum class LabelStyle { Normal, Secondary, Emphasis }
 
 @Composable
 fun LabelText(
@@ -81,11 +122,7 @@ fun LabelText(
     palette: GlassPalette,
     style: LabelStyle = LabelStyle.Normal,
 ) {
-    val layout = when (style) {
-        LabelStyle.Emphasis -> R.layout.label_text_medium
-        LabelStyle.OnWallpaper -> if (palette.lightText) R.layout.label_text_shadow else R.layout.label_text
-        else -> R.layout.label_text
-    }
+    val layout = if (style == LabelStyle.Emphasis) R.layout.label_text_medium else R.layout.label_text
     val views = RemoteViews(context.packageName, layout).apply {
         setTextViewText(R.id.labelText, text)
         setTextViewTextSize(R.id.labelText, TypedValue.COMPLEX_UNIT_SP, sizeSp)

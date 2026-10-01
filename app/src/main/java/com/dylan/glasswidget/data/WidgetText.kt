@@ -15,6 +15,41 @@ object WidgetText {
         DateTimeFormatter.ofPattern(if (use24h) "H:mm" else "h:mm", Locale.getDefault())
             .format(Instant.ofEpochMilli(epochMs).atZone(zone))
 
+    /** What the glass clock shows: "0745", "07:45", "745" or "7:45" (HyperOS's lockscreen has no colon). */
+    fun clockText(epochMs: Long, zone: ZoneId, use24h: Boolean, colon: Boolean): String {
+        val sep = if (colon) ":" else ""
+        val pattern = if (use24h) "HH${sep}mm" else "h${sep}mm"
+        return DateTimeFormatter.ofPattern(pattern, Locale.ROOT).format(Instant.ofEpochMilli(epochMs).atZone(zone))
+    }
+
+    // Width/height of the glass digit drawables (printed by tools/build_clock_digits.py).
+    const val DIGIT_ASPECT = 0.4014f
+    const val COLON_ASPECT = 0.1839f
+
+    /** Width of [text] in glass digits at a given height. */
+    fun clockWidth(text: String, heightDp: Float): Float =
+        text.sumOf { (if (it == ':') COLON_ASPECT else DIGIT_ASPECT).toDouble() }.toFloat() * heightDp
+
+    /**
+     * Greedily packs items (by estimated width) into rows no wider than [maxWidth], at most [perRow]
+     * per row (Glance caps a row at 10 children; each item plus its gap takes two). Returns indices.
+     */
+    fun packRows(widths: List<Float>, maxWidth: Float, gap: Float, perRow: Int = 5): List<List<Int>> {
+        val rows = mutableListOf<MutableList<Int>>()
+        var used = 0f
+        widths.forEachIndexed { i, w ->
+            val row = rows.lastOrNull()
+            if (row != null && row.size < perRow && used + gap + w <= maxWidth) {
+                row += i
+                used += gap + w
+            } else {
+                rows += mutableListOf(i)
+                used = w
+            }
+        }
+        return rows
+    }
+
     /** The next sunrise or sunset after [nowMs], if the forecast covers it. */
     fun nextSunEvent(events: List<SunEvent>, nowMs: Long): SunEvent? =
         events.filter { it.atEpochMs > nowMs }.minByOrNull { it.atEpochMs }

@@ -6,6 +6,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Only used when "Show next event" is switched on. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Glass digits are images, so the app redraws them each minute with an exact (non-waking) alarm.
+         USE_EXACT_ALARM is granted automatically on Android 13+; SCHEDULE_EXACT_ALARM covers 12. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <!-- Restart the minute ticker after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Package visibility (Android 11+): list launcher apps for the tap-target pickers,
          and resolve the default clock / calendar apps. Build-time declaration, no prompt. -->
@@ -47,6 +55,18 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".widget.ClockTickReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".widget.GlassClockWidgetReceiver"

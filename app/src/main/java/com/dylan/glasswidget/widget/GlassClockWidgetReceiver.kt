@@ -16,12 +16,20 @@ class GlassClockWidgetReceiver : GlanceAppWidgetReceiver() {
         WeatherRefreshWorker.schedule(context)
         WeatherRefreshWorker.refreshNow(context)
         CalendarRefreshWorker.observe(context)
+        ClockTicker.refresh(context)
     }
 
-    /** Cheap insurance that the periodic job exists (KEEP makes this a no-op when it does). */
+    /** Cheap insurance that the periodic jobs and the minute ticker are running. */
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         WeatherRefreshWorker.schedule(context)
         CalendarRefreshWorker.observe(context)
+        ClockTicker.refresh(context)
+    }
+
+    /** Last widget removed: the ticker notices there's nothing left to draw and stops. */
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        ClockTicker.refresh(context)
     }
 }

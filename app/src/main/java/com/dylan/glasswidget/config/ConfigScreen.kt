@@ -74,6 +74,7 @@ import com.dylan.glasswidget.data.WeatherRefreshWorker
 import com.dylan.glasswidget.data.WidgetAlignment
 import com.dylan.glasswidget.data.WidgetDataStore
 import com.dylan.glasswidget.widget.AppTargets
+import com.dylan.glasswidget.widget.ClockTicker
 import com.dylan.glasswidget.widget.GlassClockWidget
 import com.dylan.glasswidget.widget.WidgetPrefsKeys
 import com.dylan.glasswidget.widget.WidgetSettings
@@ -115,6 +116,7 @@ fun ConfigScreen(appWidgetId: Int, onDone: () -> Unit) {
             updateAppWidgetState(context, glanceId) { block(it) }
             loaded = WidgetSettings.from(getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId))
             GlassClockWidget().update(context, glanceId)
+            ClockTicker.tick(context) // starts or stops the minute ticker if the clock style changed
             previewVersion++
         }
     }
@@ -200,6 +202,11 @@ private fun LookSection(s: WidgetSettings, edit: Edit) = Section(stringResource(
         listOf(ClockStyle.Glass to stringResource(R.string.style_glass), ClockStyle.Solid to stringResource(R.string.style_solid)),
         selected = s.clockStyle,
     ) { v -> edit { it[WidgetPrefsKeys.CLOCK_STYLE] = v.key } }
+    Text(
+        stringResource(R.string.style_glass_note),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
     Label(stringResource(R.string.glass_variant))
     Chips(
