@@ -10,6 +10,7 @@ data class OpenMeteoResponse(
     val current: CurrentBlock,
     val daily: DailyBlock? = null,
     val hourly: HourlyBlock? = null,
+    @SerialName("minutely_15") val minutely15: Minutely15Block? = null,
     @SerialName("utc_offset_seconds") val utcOffsetSeconds: Int = 0,
 )
 
@@ -18,6 +19,16 @@ data class HourlyBlock(
     // Local wall-clock hours at the location, e.g. "2026-10-01T10:00".
     val time: List<String> = emptyList(),
     @SerialName("precipitation_probability") val precipProb: List<Double?> = emptyList(),
+    @SerialName("temperature_2m") val temperature: List<Double?> = emptyList(),
+    @SerialName("weather_code") val weatherCode: List<Int?> = emptyList(),
+    @SerialName("is_day") val isDay: List<Int?> = emptyList(),
+    val precipitation: List<Double?> = emptyList(), // mm in the hour
+)
+
+@Serializable
+data class Minutely15Block(
+    val time: List<String> = emptyList(),
+    val precipitation: List<Double?> = emptyList(), // mm in the 15 minutes
 )
 
 @Serializable
@@ -41,6 +52,7 @@ data class DailyBlock(
     val sunset: List<String?> = emptyList(),
     @SerialName("precipitation_probability_max") val precipProbMax: List<Double?> = emptyList(),
     @SerialName("uv_index_max") val uvIndexMax: List<Double?> = emptyList(),
+    @SerialName("weather_code") val weatherCode: List<Int?> = emptyList(),
 )
 
 // ---- Open-Meteo air quality response ----
@@ -52,6 +64,13 @@ data class AirQualityResponse(val current: AirQualityBlock? = null)
 data class AirQualityBlock(
     @SerialName("european_aqi") val europeanAqi: Double? = null,
     @SerialName("us_aqi") val usAqi: Double? = null,
+    // Grains per m³ (CAMS, Europe only).
+    @SerialName("alder_pollen") val alder: Double? = null,
+    @SerialName("birch_pollen") val birch: Double? = null,
+    @SerialName("grass_pollen") val grass: Double? = null,
+    @SerialName("mugwort_pollen") val mugwort: Double? = null,
+    @SerialName("olive_pollen") val olive: Double? = null,
+    @SerialName("ragweed_pollen") val ragweed: Double? = null,
 )
 
 // ---- Open-Meteo geocoding response ----
@@ -80,6 +99,26 @@ data class GeocodingResult(
 @Serializable
 data class SunEvent(val atEpochMs: Long, val sunrise: Boolean)
 
+/** One hour of forecast, for the hourly strip. */
+@Serializable
+data class HourForecast(val atEpochMs: Long, val tempC: Double, val weatherCode: Int, val isDay: Boolean, val precipChancePct: Int? = null)
+
+/** Rain amount in one short slot (15 minutes, or an hour when finer data isn't there). */
+@Serializable
+data class RainSlot(val atEpochMs: Long, val lengthMs: Long, val mm: Double)
+
+/** Tomorrow at a glance. */
+@Serializable
+data class DayForecast(val maxC: Double, val minC: Double, val weatherCode: Int, val precipChancePct: Int? = null)
+
+/** A pollen count (grains/m³) for one type. */
+@Serializable
+data class PollenReading(val type: PollenType, val grains: Double)
+
+/** An active Met Office weather warning. */
+@Serializable
+data class WeatherWarning(val level: WarningLevel, val hazard: String)
+
 @Serializable
 data class WeatherSnapshot(
     val tempC: Double,
@@ -99,6 +138,11 @@ data class WeatherSnapshot(
     val sunEvents: List<SunEvent> = emptyList(),
     /** True when temperatures and conditions came from the UK Met Office models. */
     val metOffice: Boolean = false,
+    val hourly: List<HourForecast> = emptyList(),
+    val rainSlots: List<RainSlot> = emptyList(),
+    val tomorrow: DayForecast? = null,
+    val pollen: List<PollenReading> = emptyList(),
+    val warnings: List<WeatherWarning> = emptyList(),
 )
 
 /** Everything cached, keyed by [LocationKey] so several widgets can show different cities. */
@@ -116,6 +160,8 @@ data class CalendarEvent(
     val allDay: Boolean,
     /** [DEVICE_SOURCE] for Android's calendar, or [Ics.sourceKey] of the calendar link it came from. */
     val source: String = DEVICE_SOURCE,
+    /** Where it is, if the event says (tapping it then opens Maps). */
+    val location: String? = null,
 ) {
     val fromLink: Boolean get() = source != DEVICE_SOURCE
 

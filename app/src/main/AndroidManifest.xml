@@ -65,6 +65,8 @@
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <!-- redraw straight away when an alarm is set or changed (the line above the clock) -->
+                <action android:name="android.app.action.NEXT_ALARM_CLOCK_CHANGED" />
             </intent-filter>
         </receiver>
 

@@ -43,6 +43,9 @@ data class WidgetSettings(
     val useDeviceCalendars: Boolean = true,
     val calendarLinks: List<CalendarLink> = emptyList(),
     val eventsAllDay: Boolean = true,
+    val smartRain: Boolean = true,
+    val smartAlarm: Boolean = true,
+    val smartWarnings: Boolean = true,
 ) {
     /** Where this widget wants weather for, or null if the user hasn't picked anywhere yet. */
     val location: Location?
@@ -78,7 +81,12 @@ data class WidgetSettings(
             showColon = p[WidgetPrefsKeys.SHOW_COLON] ?: false,
             datePreset = DatePreset.from(p[WidgetPrefsKeys.DATE_FORMAT_PRESET]),
             tempUnit = TempUnit.from(p[WidgetPrefsKeys.TEMP_UNIT]),
-            details = WeatherDetail.fromKeys(p[WidgetPrefsKeys.WEATHER_DETAILS]),
+            details = WeatherDetail.fromKeys(p[WidgetPrefsKeys.WEATHER_DETAILS]).let { saved ->
+                // Lists saved before pollen, moon, tomorrow and hourly existed get them switched on once.
+                if (p[WidgetPrefsKeys.WEATHER_DETAILS] != null && (p[WidgetPrefsKeys.WEATHER_DETAILS_REV] ?: 0) < 2) {
+                    saved + setOf(WeatherDetail.Pollen, WeatherDetail.Moon, WeatherDetail.Tomorrow, WeatherDetail.Hourly)
+                } else saved
+            },
             locationMode = LocationMode.from(p[WidgetPrefsKeys.LOCATION_MODE]),
             cityLat = p[WidgetPrefsKeys.CITY_LAT],
             cityLon = p[WidgetPrefsKeys.CITY_LON],
@@ -89,6 +97,9 @@ data class WidgetSettings(
             useDeviceCalendars = p[WidgetPrefsKeys.USE_DEVICE_CALENDARS] ?: true,
             calendarLinks = CalendarLink.decode(p[WidgetPrefsKeys.CALENDAR_LINKS]),
             eventsAllDay = p[WidgetPrefsKeys.EVENTS_ALL_DAY] ?: true,
+            smartRain = p[WidgetPrefsKeys.SMART_RAIN] ?: true,
+            smartAlarm = p[WidgetPrefsKeys.SMART_ALARM] ?: true,
+            smartWarnings = p[WidgetPrefsKeys.SMART_WARNINGS] ?: true,
         )
     }
 }

@@ -65,6 +65,11 @@ object WidgetText {
         return rows
     }
 
+    /** Hour label for the hourly strip: "14" (24h) or "2pm" (12h). */
+    fun hourLabel(epochMs: Long, zone: ZoneId, use24h: Boolean): String =
+        DateTimeFormatter.ofPattern(if (use24h) "HH" else "ha", Locale.UK)
+            .format(Instant.ofEpochMilli(epochMs).atZone(zone)).lowercase()
+
     /** The next sunrise or sunset after [nowMs], if the forecast covers it. */
     fun nextSunEvent(events: List<SunEvent>, nowMs: Long): SunEvent? =
         events.filter { it.atEpochMs > nowMs }.minByOrNull { it.atEpochMs }

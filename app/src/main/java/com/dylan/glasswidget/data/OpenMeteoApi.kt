@@ -29,9 +29,15 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
             val metOffice = runCatching { parseForecast(http(forecastUrl(lat, lon, MET_OFFICE)), nowMs) }.getOrNull()
             val weather = metOffice?.let { preferring(it, blend) } ?: blend
             val air = runCatching { parseAirQuality(http(airQualityUrl(lat, lon))) }.getOrNull()
+            // UK only: active Met Office warnings for the region this location is in.
+            val warnings = MetOfficeWarnings.regionFor(lat, lon)?.let { region ->
+                runCatching { MetOfficeWarnings.parseRss(http(MetOfficeWarnings.feedUrl(region.code))) }.getOrNull()
+            }.orEmpty()
             weather.copy(
                 europeanAqi = air?.europeanAqi?.roundToInt(),
                 usAqi = air?.usAqi?.roundToInt(),
+                pollen = Pollen.fromAirQuality(air),
+                warnings = warnings,
             )
         }
 
@@ -54,25 +60,37 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
             "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=${coord(lat)}&longitude=${coord(lon)}" +
                 "&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m" +
-                "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,uv_index_max" +
-                "&hourly=precipitation_probability" +
+                "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,uv_index_max,weather_code" +
+                "&hourly=precipitation_probability,temperature_2m,weather_code,is_day,precipitation" +
+                "&minutely_15=precipitation&forecast_minutely_15=16" +
                 "&forecast_days=2&timezone=auto" +
                 (model?.let { "&models=$it" } ?: "")
 
         /** [primary]'s values where it has them, otherwise [fallback]'s; rain chance always from the ensemble blend. */
-        fun preferring(primary: WeatherSnapshot, fallback: WeatherSnapshot) = primary.copy(
-            feelsLikeC = primary.feelsLikeC ?: fallback.feelsLikeC,
-            humidityPct = primary.humidityPct ?: fallback.humidityPct,
-            windKmh = primary.windKmh ?: fallback.windKmh,
-            precipChancePct = fallback.precipChancePct,
-            uvIndexMax = primary.uvIndexMax ?: fallback.uvIndexMax,
-            sunEvents = primary.sunEvents.ifEmpty { fallback.sunEvents },
-            metOffice = true,
-        )
+        fun preferring(primary: WeatherSnapshot, fallback: WeatherSnapshot): WeatherSnapshot {
+            val chanceAt = fallback.hourly.associate { it.atEpochMs to it.precipChancePct }
+            val hourly = primary.hourly.ifEmpty { fallback.hourly }.map { h -> h.copy(precipChancePct = chanceAt[h.atEpochMs]) }
+            return primary.copy(
+                feelsLikeC = primary.feelsLikeC ?: fallback.feelsLikeC,
+                humidityPct = primary.humidityPct ?: fallback.humidityPct,
+                windKmh = primary.windKmh ?: fallback.windKmh,
+                precipChancePct = fallback.precipChancePct,
+                uvIndexMax = primary.uvIndexMax ?: fallback.uvIndexMax,
+                sunEvents = primary.sunEvents.ifEmpty { fallback.sunEvents },
+                hourly = hourly,
+                rainSlots = primary.rainSlots.ifEmpty { fallback.rainSlots },
+                tomorrow = (primary.tomorrow ?: fallback.tomorrow)?.copy(precipChancePct = fallback.tomorrow?.precipChancePct),
+                metOffice = true,
+            )
+        }
+
+        /** How many hours ahead the hourly strip can draw from. */
+        const val HOURLY_AHEAD = 12
 
         fun airQualityUrl(lat: Double, lon: Double): String =
             "https://air-quality-api.open-meteo.com/v1/air-quality" +
-                "?latitude=${coord(lat)}&longitude=${coord(lon)}&current=european_aqi,us_aqi"
+                "?latitude=${coord(lat)}&longitude=${coord(lon)}" +
+                "&current=european_aqi,us_aqi,alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen"
 
         fun geocodingUrl(query: String, count: Int): String =
             "https://geocoding-api.open-meteo.com/v1/search" +
@@ -108,7 +126,41 @@ class OpenMeteoApi(private val http: (url: String) -> String = ::httpGet) {
                     ?: daily?.precipProbMax?.firstOrNull()?.roundToInt(),
                 uvIndexMax = daily?.uvIndexMax?.firstOrNull(),
                 sunEvents = sun,
+                hourly = hours(resp.hourly, offset, nowMs),
+                rainSlots = rainSlots(resp.minutely15, resp.hourly, offset, nowMs),
+                tomorrow = tomorrow(daily),
             )
+        }
+
+        /** The next [HOURLY_AHEAD] whole hours (from the coming hour), for the hourly strip. */
+        private fun hours(h: HourlyBlock?, offset: ZoneOffset, nowMs: Long): List<HourForecast> {
+            if (h == null) return emptyList()
+            return h.time.indices.mapNotNull { i ->
+                val at = localToEpochMs(h.time[i], offset) ?: return@mapNotNull null
+                if (at <= nowMs) return@mapNotNull null
+                val temp = h.temperature.getOrNull(i) ?: return@mapNotNull null
+                val code = h.weatherCode.getOrNull(i) ?: return@mapNotNull null
+                HourForecast(at, temp, code, (h.isDay.getOrNull(i) ?: 1) != 0, h.precipProb.getOrNull(i)?.roundToInt())
+            }.take(HOURLY_AHEAD)
+        }
+
+        /** Rain amounts ahead: 15-minute slots where the model has them, else hourly. */
+        private fun rainSlots(m: Minutely15Block?, h: HourlyBlock?, offset: ZoneOffset, nowMs: Long): List<RainSlot> {
+            fun slots(times: List<String>, mm: List<Double?>, length: Long) = times.indices.mapNotNull { i ->
+                val at = localToEpochMs(times[i], offset) ?: return@mapNotNull null
+                val amount = mm.getOrNull(i) ?: return@mapNotNull null
+                if (at + length <= nowMs || at > nowMs + 4 * 3_600_000L) null else RainSlot(at, length, amount)
+            }
+            val fine = if (m != null) slots(m.time, m.precipitation, 15 * 60_000L) else emptyList()
+            return fine.ifEmpty { if (h != null) slots(h.time, h.precipitation, 3_600_000L) else emptyList() }
+        }
+
+        private fun tomorrow(d: DailyBlock?): DayForecast? {
+            if (d == null) return null
+            val max = d.tempMax.getOrNull(1) ?: return null
+            val min = d.tempMin.getOrNull(1) ?: return null
+            val code = d.weatherCode.getOrNull(1) ?: return null
+            return DayForecast(max, min, code, d.precipProbMax.getOrNull(1)?.roundToInt())
         }
 
         /** Max hourly precipitation probability for the hour in progress and the next [RAIN_WINDOW_HOURS]. */

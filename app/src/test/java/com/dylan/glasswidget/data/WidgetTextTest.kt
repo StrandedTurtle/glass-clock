@@ -112,4 +112,10 @@ class WidgetTextTest {
         )
         assertEquals(listOf(emptyList<Int>()), WidgetText.packRows(emptyList(), 100f, 5f, firstRowUsed = 10f))
     }
+
+    @Test fun hourLabels() {
+        assertEquals("14", WidgetText.hourLabel(at("2026-10-01T13:00:00Z"), zone, use24h = true))
+        assertEquals("09", WidgetText.hourLabel(at("2026-10-01T08:00:00Z"), zone, use24h = true))
+        assertEquals("2pm", WidgetText.hourLabel(at("2026-10-01T13:00:00Z"), zone, use24h = false))
+    }
 }

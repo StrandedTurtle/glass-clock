@@ -12,6 +12,11 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.layout.size
 import com.dylan.glasswidget.R
+import com.dylan.glasswidget.data.Moon
+import com.dylan.glasswidget.data.MoonPhase
+import com.dylan.glasswidget.data.Pollen
+import com.dylan.glasswidget.data.PollenLevel
+import com.dylan.glasswidget.data.PollenType
 import com.dylan.glasswidget.data.WeatherCondition
 import com.dylan.glasswidget.data.WeatherDetail
 import com.dylan.glasswidget.data.WeatherSnapshot
@@ -90,8 +95,60 @@ fun detailItems(
             WeatherDetail.AirQuality -> (if (f) w.usAqi else w.europeanAqi)?.let {
                 add(DetailItem(R.drawable.ic_d_air, context.getString(R.string.aqi, it)))
             }
+            WeatherDetail.Pollen -> Pollen.worst(w.pollen)?.let { (reading, level) ->
+                // "Pollen low" when it's low; otherwise name the culprit: "Grass high".
+                val text = if (level == PollenLevel.Low) context.getString(R.string.pollen_low)
+                else context.getString(R.string.pollen_type_level, context.getString(reading.type.labelRes()), context.getString(level.labelRes()))
+                add(DetailItem(R.drawable.ic_d_pollen, text))
+            }
+            WeatherDetail.Moon -> Moon.phase(nowMs).let { add(DetailItem(it.iconRes(), context.getString(it.labelRes()))) }
+            WeatherDetail.Tomorrow -> w.tomorrow?.let { t ->
+                add(DetailItem(
+                    WeatherCondition.from(t.weatherCode, isDay = true).iconRes(),
+                    context.getString(R.string.tomorrow_temps, formatTemp(t.maxC, f), formatTemp(t.minC, f)),
+                ))
+            }
+            WeatherDetail.Hourly -> Unit // drawn as its own strip, not an item
         }
     }
+}
+
+fun PollenType.labelRes(): Int = when (this) {
+    PollenType.Alder -> R.string.pollen_alder
+    PollenType.Birch -> R.string.pollen_birch
+    PollenType.Grass -> R.string.pollen_grass
+    PollenType.Mugwort -> R.string.pollen_mugwort
+    PollenType.Olive -> R.string.pollen_olive
+    PollenType.Ragweed -> R.string.pollen_ragweed
+}
+
+fun PollenLevel.labelRes(): Int = when (this) {
+    PollenLevel.Low -> R.string.level_low
+    PollenLevel.Moderate -> R.string.level_moderate
+    PollenLevel.High -> R.string.level_high
+    PollenLevel.VeryHigh -> R.string.level_very_high
+}
+
+fun MoonPhase.iconRes(): Int = when (this) {
+    MoonPhase.New -> R.drawable.ic_moon_0
+    MoonPhase.WaxingCrescent -> R.drawable.ic_moon_1
+    MoonPhase.FirstQuarter -> R.drawable.ic_moon_2
+    MoonPhase.WaxingGibbous -> R.drawable.ic_moon_3
+    MoonPhase.Full -> R.drawable.ic_moon_4
+    MoonPhase.WaningGibbous -> R.drawable.ic_moon_5
+    MoonPhase.LastQuarter -> R.drawable.ic_moon_6
+    MoonPhase.WaningCrescent -> R.drawable.ic_moon_7
+}
+
+fun MoonPhase.labelRes(): Int = when (this) {
+    MoonPhase.New -> R.string.moon_new
+    MoonPhase.WaxingCrescent -> R.string.moon_waxing_crescent
+    MoonPhase.FirstQuarter -> R.string.moon_first_quarter
+    MoonPhase.WaxingGibbous -> R.string.moon_waxing_gibbous
+    MoonPhase.Full -> R.string.moon_full
+    MoonPhase.WaningGibbous -> R.string.moon_waning_gibbous
+    MoonPhase.LastQuarter -> R.string.moon_last_quarter
+    MoonPhase.WaningCrescent -> R.string.moon_waning_crescent
 }
 
 @Composable

@@ -47,7 +47,47 @@ ICONS = {
     "ic_d_sunset": ["M12 10V2", "m4.93 10.93 1.41 1.41", "M2 18h2", "M20 18h2", "m19.07 10.93-1.41 1.41",
                     "M22 22H2", "m16 6-4 4-4-4", "M16 18a4 4 0 0 0-8 0"],
     "ic_d_event": ["M8 2v4", "M16 2v4", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M3 10h18"],
+    "ic_d_pollen": ["M12 7.5a4.5 4.5 0 1 1 4.5 4.5M12 7.5A4.5 4.5 0 1 0 7.5 12M12 7.5V9m-4.5 3a4.5 4.5 0 1 0 4.5 4.5M7.5 12H9m7.5 0a4.5 4.5 0 1 1-4.5 4.5m4.5-4.5H15m-3 4.5V15",
+                    "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z", "m8 16 1.5-1.5", "M14.5 9.5 16 8", "m8 8 1.5 1.5", "M14.5 14.5 16 16"],
 }
+
+# Moon phases 0-7 (new, waxing crescent, first quarter, waxing gibbous, full, waning gibbous, last quarter,
+# waning crescent) as a disc outline with the lit part filled; northern-hemisphere orientation.
+def moon_phase_paths(k):
+    import math
+    r, cx, cy = 8.5, 12.0, 12.0
+    outline = f"M{cx} {cy - r}a{r} {r} 0 1 0 0 {2 * r}a{r} {r} 0 1 0 0 {-2 * r}z"
+    if k == 0:
+        return [outline], None
+    if k == 4:
+        return [outline], outline
+    # 0 new .. pi full .. 2pi; crescents and gibbous phases exaggerated a little so they read at icon size
+    theta = {1: math.pi / 3, 2: math.pi / 2, 3: 2 * math.pi / 3,
+             5: 4 * math.pi / 3, 6: 3 * math.pi / 2, 7: 5 * math.pi / 3}[k]
+    rx = abs(math.cos(theta)) * r           # terminator ellipse half-width
+    waxing = k < 4
+    top, bottom = f"M{cx} {cy - r}", f"{cx} {cy + r}"
+    # lit limb: right half when waxing, left when waning
+    limb = f"A{r} {r} 0 0 {1 if waxing else 0} {bottom}"
+    # terminator back up: bulges into the lit half for crescents, into the dark half for gibbous
+    crescent = k in (1, 7)
+    sweep = (0 if crescent else 1) if waxing else (1 if crescent else 0)
+    term = f"A{rx:.2f} {r} 0 0 {sweep} {cx} {cy - r}" if rx > 0.05 else f"L{cx} {cy - r}"
+    return [outline], f"{top}{limb}{term}z"
+
+
+def moon_vector(k):
+    strokes, fill = moon_phase_paths(k)
+    body = "\n".join(
+        f'    <path\n        android:pathData="{d}"\n        android:strokeColor="#FFFFFFFF"\n'
+        f'        android:strokeWidth="1.8"\n        android:strokeLineJoin="round" />' for d in strokes)
+    if fill:
+        body += f'\n    <path\n        android:pathData="{fill}"\n        android:fillColor="#FFFFFFFF" />'
+    return ('<?xml version="1.0" encoding="utf-8"?>\n'
+            '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
+            '    android:width="24dp"\n    android:height="24dp"\n'
+            '    android:viewportWidth="24"\n    android:viewportHeight="24">\n' + body + '\n</vector>\n')
+
 
 def vector(paths):
     body = "\n".join(
@@ -86,6 +126,8 @@ def main():
     RES.mkdir(parents=True, exist_ok=True)
     for name, paths in ICONS.items():
         (RES / f"{name}.xml").write_text(vector(paths))
+    for k in range(8):
+        (RES / f"ic_moon_{k}.xml").write_text(moon_vector(k))
     for (tint, variant), colours in PILLS.items():
         (RES / f"pill_{tint}_{variant}.xml").write_text(pill(*colours))
     if "--sheet" in sys.argv:

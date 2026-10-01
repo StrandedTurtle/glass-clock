@@ -25,6 +25,7 @@ object Ics {
     data class Event(
         val uid: String,
         val summary: String,
+        val location: String?,
         val start: ZonedDateTime,
         val end: ZonedDateTime,
         val allDay: Boolean,
@@ -97,6 +98,7 @@ object Ics {
             endEpochMs = end,
             allDay = e.allDay,
             source = source,
+            location = e.location,
         )
     }
 
@@ -243,6 +245,7 @@ object Ics {
         return Event(
             uid = prop("UID")?.value ?: (prop("SUMMARY")?.value.orEmpty() + dtStart.value),
             summary = unescape(prop("SUMMARY")?.value.orEmpty()),
+            location = prop("LOCATION")?.value?.let(::unescape)?.takeIf { it.isNotBlank() },
             start = start,
             end = end,
             allDay = allDay,

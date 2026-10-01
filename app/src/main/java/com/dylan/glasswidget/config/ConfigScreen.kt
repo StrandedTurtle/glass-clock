@@ -71,6 +71,7 @@ import com.dylan.glasswidget.data.GlassVariant
 import com.dylan.glasswidget.data.HourMode
 import com.dylan.glasswidget.data.Limits
 import com.dylan.glasswidget.data.LocationMode
+import com.dylan.glasswidget.data.MetOfficeWarnings
 import com.dylan.glasswidget.data.OpenMeteoApi
 import com.dylan.glasswidget.data.TempUnit
 import com.dylan.glasswidget.data.TintMode
@@ -178,6 +179,7 @@ fun ConfigScreen(appWidgetId: Int, onDone: () -> Unit) {
                         LookSection(s, ::edit)
                         ClockDateSection(s, ::edit)
                         WeatherSection(s, ::edit)
+                        TopLineSection(s, ::edit)
                         CalendarSection(s, ::edit) { previewVersion++ }
                         TapTargetSection(s, ::edit)
                         Section(stringResource(R.string.section_reliability)) { ReliabilityCard() }
@@ -377,10 +379,17 @@ private fun WeatherSection(s: WidgetSettings, edit: Edit) = Section(stringResour
         WeatherDetail.Humidity to R.string.detail_humidity,
         WeatherDetail.Uv to R.string.detail_uv,
         WeatherDetail.AirQuality to R.string.detail_aqi,
+        WeatherDetail.Pollen to R.string.detail_pollen,
+        WeatherDetail.Moon to R.string.detail_moon,
+        WeatherDetail.Tomorrow to R.string.detail_tomorrow,
+        WeatherDetail.Hourly to R.string.detail_hourly,
     )
     MultiChips(WeatherDetail.entries.map { it to stringResource(labels.getValue(it)) }, s.details) { d, on ->
         val next = if (on) s.details + d else s.details - d
-        edit { it[WidgetPrefsKeys.WEATHER_DETAILS] = next.map(WeatherDetail::key).toSet() }
+        edit {
+            it[WidgetPrefsKeys.WEATHER_DETAILS] = next.map(WeatherDetail::key).toSet()
+            it[WidgetPrefsKeys.WEATHER_DETAILS_REV] = 2
+        }
     }
 
     Hint(stringResource(R.string.weather_source))
@@ -499,6 +508,25 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
             edit { it[WidgetPrefsKeys.EVENTS_ALL_DAY] = on }
         }
     }
+
+/** The smart line above the clock: what it may show. Calendar events are set up in their own section. */
+@Composable
+private fun TopLineSection(s: WidgetSettings, edit: Edit) = Section(stringResource(R.string.section_top_line)) {
+    Hint(stringResource(R.string.top_line_body))
+    SwitchRow(stringResource(R.string.top_rain), stringResource(R.string.top_rain_sub), s.smartRain) { on ->
+        edit { it[WidgetPrefsKeys.SMART_RAIN] = on }
+    }
+    SwitchRow(stringResource(R.string.top_alarm), stringResource(R.string.top_alarm_sub), s.smartAlarm) { on ->
+        edit { it[WidgetPrefsKeys.SMART_ALARM] = on }
+    }
+    val region = s.location?.let { MetOfficeWarnings.regionFor(it.lat, it.lon) }
+    SwitchRow(
+        stringResource(R.string.top_warnings),
+        if (region != null) stringResource(R.string.top_warnings_region, region.name) else stringResource(R.string.top_warnings_uk_only),
+        s.smartWarnings,
+    ) { on -> edit { it[WidgetPrefsKeys.SMART_WARNINGS] = on } }
+    Hint(stringResource(R.string.top_events_note))
+}
 
 /** Paste a link; it's downloaded and checked before it's saved, under the calendar's own name. */
 @Composable

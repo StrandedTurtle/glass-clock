@@ -3,6 +3,7 @@ package com.dylan.glasswidget.widget
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 
@@ -30,6 +31,8 @@ object WidgetPrefsKeys {
     // Weather
     val TEMP_UNIT = stringPreferencesKey("temp_unit")
     val WEATHER_DETAILS = stringSetPreferencesKey("weather_details")
+    // Set once the detail list has been saved with pollen/moon/tomorrow/hourly on offer.
+    val WEATHER_DETAILS_REV = intPreferencesKey("weather_details_rev")
     val LOCATION_MODE = stringPreferencesKey("location_mode")
     val CITY_LAT = doublePreferencesKey("city_lat")
     val CITY_LON = doublePreferencesKey("city_lon")
@@ -43,4 +46,9 @@ object WidgetPrefsKeys {
     val USE_DEVICE_CALENDARS = booleanPreferencesKey("use_device_calendars")
     val CALENDAR_LINKS = stringPreferencesKey("calendar_links") // CalendarLink.encode: "name<TAB>url" per line
     val EVENTS_ALL_DAY = booleanPreferencesKey("events_all_day")
+
+    // Smart line above the clock (events are switched by SHOW_EVENTS)
+    val SMART_RAIN = booleanPreferencesKey("smart_rain")
+    val SMART_ALARM = booleanPreferencesKey("smart_alarm")
+    val SMART_WARNINGS = booleanPreferencesKey("smart_warnings")
 }

@@ -49,6 +49,8 @@ class IcsTest {
     @Test fun foldedLinesAndEscapes() {
         val ics = cal("UID:e\r\nSUMMARY:Lunch\\, then\r\n  a walk\r\nDTSTART:20261001T120000Z\r\nDTEND:20261001T130000Z")
         assertEquals("Lunch, then a walk", expand(ics, "2026-10-01T00:00:00Z", "2026-10-02T00:00:00Z").single().title)
+        val located = cal("UID:l\r\nSUMMARY:Coffee\r\nLOCATION:Monmouth\\, Borough Market\r\nDTSTART:20261001T120000Z\r\nDTEND:20261001T130000Z")
+        assertEquals("Monmouth, Borough Market", expand(located, "2026-10-01T00:00:00Z", "2026-10-02T00:00:00Z").single().location)
     }
 
     @Test fun weeklyWithExdateAndOverride() {

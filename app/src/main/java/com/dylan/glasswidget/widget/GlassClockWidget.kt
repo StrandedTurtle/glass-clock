@@ -30,6 +30,11 @@ import com.dylan.glasswidget.R
 import com.dylan.glasswidget.data.CalendarEvent
 import com.dylan.glasswidget.data.CalendarRepository
 import com.dylan.glasswidget.data.HourMode
+import com.dylan.glasswidget.data.HourForecast
+import com.dylan.glasswidget.data.RainOutlook
+import com.dylan.glasswidget.data.SmartLine
+import com.dylan.glasswidget.data.WarningLevel
+import com.dylan.glasswidget.data.WeatherDetail
 import com.dylan.glasswidget.data.WeatherCondition
 import com.dylan.glasswidget.data.WeatherSnapshot
 import com.dylan.glasswidget.data.WidgetAlignment
@@ -70,6 +75,9 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
     val lineHeightDp: Float get() = maxOf(pillSp * 1.3f, iconDp.toFloat())
     val pillHeightDp: Float get() = lineHeightDp + 16f
 
+    /** Rough height of the hourly strip: hour label, icon, temperature. */
+    val hourlyHeightDp: Float get() = (pillSp - 1.5f) * 1.3f + 2f + iconDp + 2f + (pillSp - 0.5f) * 1.3f
+
     /** Rough width of text in the system font at the pill size. */
     fun textWidthDp(text: String): Float = text.length * pillSp * 0.56f
 
@@ -92,6 +100,7 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
 private const val ITEM_GAP_DP = 12f
 private const val LINE_GAP_DP = 5f
 private const val EVENT_GAP_DP = 4f
+private const val HOUR_SLOT_DP = 44f
 private const val PILL_PADDING_DP = 30f // 14dp each side + rim
 
 @Suppress("UNUSED_PARAMETER") // [minute] is a recomposition key: each tick re-runs this with the new time
@@ -143,18 +152,38 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         WidgetSize.Tall -> 3
         WidgetSize.Large -> 4
     }
-    // Your next event is a line of plain text above the clock, like the lockscreen's top line. When space
-    // is short the extra weather lines give way first; the event only goes if the clock would get tiny.
-    var showEvent = event != null && size != WidgetSize.Compact
-    var lines = packed.take((maxLines - if (showEvent) 1 else 0).coerceAtLeast(1))
+    // ---- Smart line above the clock: the most useful thing right now (like the lockscreen top line) ----
+    val alarmMs = runCatching {
+        context.getSystemService(android.app.AlarmManager::class.java)?.nextAlarmClock?.triggerTime
+    }.getOrNull()
+    val smartItems = SmartLine.items(
+        now, zone, use24h, event, alarmMs,
+        rain = weather?.let { RainOutlook.from(it.rainSlots, now) },
+        warnings = weather?.warnings.orEmpty(),
+        sources = SmartLine.Sources(events = s.showEvents, rain = s.smartRain, alarm = s.smartAlarm, warnings = s.smartWarnings),
+        labels = smartLabels(context),
+    )
+    val smart = SmartLine.pick(smartItems, maxChars = (widthDp / (m.pillSp * 0.56f)).toInt())
+    var showSmart = smart.isNotEmpty() && size != WidgetSize.Compact
+
+    // ---- Hourly strip inside the card ----
+    val hourSlots = (maxLine / HOUR_SLOT_DP).toInt().coerceIn(3, 6)
+    val hours = if (WeatherDetail.Hourly in s.details) weather?.hourly.orEmpty().take(hourSlots) else emptyList()
+    var showHourly = hours.size >= 3 && size != WidgetSize.Compact
+
+    // When space is short: extra weather lines give way first, then the hourly strip; the smart line
+    // only goes if the clock would get tiny.
+    var lines = packed.take(maxLines.coerceAtLeast(1))
     val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
-        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + 16f
-        val eventLine = if (showEvent) m.lineHeightDp + EVENT_GAP_DP else 0f
-        return minOf(heightDp - card - m.gapDp - eventLine, widthDp / clockAspectWidth)
+        val hourly = if (showHourly) m.hourlyHeightDp + LINE_GAP_DP else 0f
+        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + hourly + 16f
+        val smartLine = if (showSmart) m.lineHeightDp + EVENT_GAP_DP else 0f
+        return minOf(heightDp - card - m.gapDp - smartLine, widthDp / clockAspectWidth)
     }
     while (lines.size > 1 && digitHeight() < heightDp * 0.4f) lines = lines.dropLast(1)
-    if (showEvent && digitHeight() < heightDp * 0.3f) showEvent = false
+    if (showHourly && digitHeight() < heightDp * 0.4f) showHourly = false
+    if (showSmart && digitHeight() < heightDp * 0.3f) showSmart = false
     val digitsDp = (digitHeight() * s.clockScale).coerceAtLeast(24f)
 
     val hAlign = if (s.alignment == WidgetAlignment.Center) Alignment.CenterHorizontally else Alignment.Start
@@ -196,13 +225,21 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         horizontalAlignment = hAlign,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (showEvent && event != null) {
-            // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
-            EventLine(
-                context, palette, m, event,
-                if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event),
-                now, zone, use24h,
-            )
+        if (showSmart) {
+            // Tapping goes where the first item points: the event (or Maps if it has a location),
+            // the weather app for rain and warnings, the clock app for the alarm.
+            val first = smart.first()
+            val intent = when (first.kind) {
+                SmartLine.Kind.Event -> event?.let { e ->
+                    e.location?.let(CalendarRepository::mapsIntent)
+                        ?: if (e.fromLink) dateIntent else CalendarRepository.viewIntent(e)
+                }
+                SmartLine.Kind.Rain, SmartLine.Kind.Warning -> weatherIntent
+                SmartLine.Kind.Alarm -> clockIntent
+            }
+            TapZone(intent) {
+                LabelText(context, smart.joinToString(" • ") { it.text }, m.pillSp, palette, LabelStyle.OnWallpaper)
+            }
             Spacer(GlanceModifier.height(EVENT_GAP_DP.dp))
         }
         digits(GlanceModifier.fillMaxWidth().height(digitsDp.dp))
@@ -210,6 +247,7 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         InfoCard(
             context, s, palette, m, weather, location == null, dateIntent, weatherIntent,
             lines.map { row -> row.map { items[it] } },
+            hours = if (showHourly) hours else emptyList(), use24h = use24h, zone = zone,
         )
     }
 }
@@ -229,6 +267,9 @@ private fun InfoCard(
     dateIntent: Intent?,
     weatherIntent: Intent?,
     lines: List<List<DetailItem>>,
+    hours: List<HourForecast>,
+    use24h: Boolean,
+    zone: ZoneId,
 ) {
     GlassCard(palette) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -243,6 +284,10 @@ private fun InfoCard(
                     }
                 }
             }
+        }
+        if (hours.isNotEmpty()) {
+            Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
+            TapZone(weatherIntent) { HourlyStrip(context, palette, m, hours, s, use24h, zone) }
         }
         lines.drop(1).forEach { line ->
             Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
@@ -272,29 +317,54 @@ private fun DetailChip(context: Context, palette: GlassPalette, m: Metrics, item
     }
 }
 
-/** "11:30 • Dentist" as plain text on the wallpaper above the clock, like the lockscreen's top line. */
+/** The next few hours: time, icon and temperature in columns. One child per hour (Glance caps rows at 10). */
 @Composable
-private fun EventLine(
+private fun HourlyStrip(
     context: Context,
     palette: GlassPalette,
     m: Metrics,
-    e: CalendarEvent,
-    intent: Intent?,
-    now: Long,
-    zone: ZoneId,
+    hours: List<HourForecast>,
+    s: WidgetSettings,
     use24h: Boolean,
+    zone: ZoneId,
 ) {
-    val whenText = WidgetText.eventWhen(
-        e, now, zone, use24h,
-        context.getString(R.string.event_now),
-        context.getString(R.string.event_today),
-        context.getString(R.string.event_tomorrow),
-    )
-    val title = e.title.ifBlank { context.getString(R.string.event_untitled) }
-    TapZone(intent) {
-        LabelText(context, "$whenText • $title", m.pillSp, palette, LabelStyle.OnWallpaper)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        hours.forEach { h ->
+            Column(
+                modifier = GlanceModifier.width(HOUR_SLOT_DP.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                LabelText(context, WidgetText.hourLabel(h.atEpochMs, zone, use24h), m.pillSp - 1.5f, palette, LabelStyle.Secondary)
+                Spacer(GlanceModifier.height(2.dp))
+                GlassIcon(WeatherCondition.from(h.weatherCode, h.isDay).iconRes(), m.iconDp, palette)
+                Spacer(GlanceModifier.height(2.dp))
+                LabelText(context, formatTemp(h.tempC, s.fahrenheit), m.pillSp - 0.5f, palette)
+            }
+        }
     }
 }
+
+/** Smart line wording from string resources. */
+private fun smartLabels(context: Context) = SmartLine.Labels(
+    now = context.getString(R.string.event_now),
+    today = context.getString(R.string.event_today),
+    tomorrow = context.getString(R.string.event_tomorrow),
+    inMinutes = { context.getString(R.string.smart_in_minutes, it) },
+    rainFrom = { context.getString(R.string.smart_rain_from, it) },
+    rainEasing = { context.getString(R.string.smart_rain_easing, it) },
+    rainContinuing = context.getString(R.string.smart_rain_continuing),
+    alarm = { context.getString(R.string.smart_alarm, it) },
+    warning = { level, hazard ->
+        val name = context.getString(
+            when (level) {
+                WarningLevel.Yellow -> R.string.warning_yellow
+                WarningLevel.Amber -> R.string.warning_amber
+                WarningLevel.Red -> R.string.warning_red
+            }
+        )
+        context.getString(R.string.smart_warning, name, hazard)
+    },
+)
 
 /** Weather icon + "14°", or a prompt until the first fetch / until a city is set. */
 @Composable

@@ -87,7 +87,12 @@ enum class WeatherDetail(val key: String, val inPill: Boolean, val onByDefault: 
     Wind("wind", false, true),
     Humidity("humidity", false, false),
     Uv("uv", false, false),
-    AirQuality("aqi", false, true);
+    AirQuality("aqi", false, true),
+    Pollen("pollen", false, true),
+    Moon("moon", false, true),
+    Tomorrow("tomorrow", false, true),
+    /** Not an item: a strip of the next few hours inside the card. */
+    Hourly("hourly", false, true);
 
     companion object {
         val defaults: Set<WeatherDetail> = entries.filter { it.onByDefault }.toSet()

@@ -32,6 +32,7 @@ object CalendarRepository {
             CalendarContract.Instances.BEGIN,
             CalendarContract.Instances.END,
             CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.EVENT_LOCATION,
         )
         val selection = "${CalendarContract.Instances.VISIBLE} = 1 AND " +
             "${CalendarContract.Instances.SELF_ATTENDEE_STATUS} != ${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}"
@@ -44,7 +45,10 @@ object CalendarRepository {
                             val allDay = c.getInt(4) == 1
                             // All-day ends are UTC midnights; keep them a day longer and let the picker decide.
                             if (end <= nowMs && !(allDay && end > nowMs - DAY_MS)) continue
-                            add(CalendarEvent(c.getLong(0), c.getString(1).orEmpty(), c.getLong(2), end, allDay))
+                            add(CalendarEvent(
+                                c.getLong(0), c.getString(1).orEmpty(), c.getLong(2), end, allDay,
+                                location = c.getString(5)?.takeIf { it.isNotBlank() },
+                            ))
                         }
                     }
                 }.orEmpty()
@@ -84,6 +88,11 @@ object CalendarRepository {
             raw.removePrefix("calendar_displayname_").replace('_', ' ').replaceFirstChar { it.uppercase() }
         } else raw
     }
+
+    /** Opens a maps app at the event's location (any app handling geo: links). */
+    fun mapsIntent(location: String): Intent =
+        Intent(Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0?q=" + android.net.Uri.encode(location)))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** Opens the event in the user's calendar app. */
     fun viewIntent(event: CalendarEvent): Intent =

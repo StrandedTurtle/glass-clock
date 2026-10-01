@@ -26,6 +26,40 @@
     <string name="event_tomorrow">Tomorrow</string>
     <string name="event_untitled">Busy</string>
 
+    <!-- Smart line above the clock -->
+    <string name="smart_in_minutes">In %1$d min</string>
+    <string name="smart_rain_from">Rain from %1$s</string>
+    <string name="smart_rain_easing">Rain easing by %1$s</string>
+    <string name="smart_rain_continuing">Rain for the next few hours</string>
+    <string name="smart_alarm">Alarm %1$s</string>
+    <string name="smart_warning">%1$s warning: %2$s</string>
+    <string name="warning_yellow">Yellow</string>
+    <string name="warning_amber">Amber</string>
+    <string name="warning_red">Red</string>
+
+    <!-- More weather -->
+    <string name="tomorrow_temps">Tomorrow %1$s/%2$s</string>
+    <string name="pollen_low">Pollen low</string>
+    <string name="pollen_type_level">%1$s %2$s</string>
+    <string name="pollen_alder">Alder</string>
+    <string name="pollen_birch">Birch</string>
+    <string name="pollen_grass">Grass</string>
+    <string name="pollen_mugwort">Mugwort</string>
+    <string name="pollen_olive">Olive</string>
+    <string name="pollen_ragweed">Ragweed</string>
+    <string name="level_low">low</string>
+    <string name="level_moderate">moderate</string>
+    <string name="level_high">high</string>
+    <string name="level_very_high">very high</string>
+    <string name="moon_new">New moon</string>
+    <string name="moon_waxing_crescent">Waxing crescent</string>
+    <string name="moon_first_quarter">First quarter</string>
+    <string name="moon_waxing_gibbous">Waxing gibbous</string>
+    <string name="moon_full">Full moon</string>
+    <string name="moon_waning_gibbous">Waning gibbous</string>
+    <string name="moon_last_quarter">Last quarter</string>
+    <string name="moon_waning_crescent">Waning crescent</string>
+
     <!-- Main screen -->
     <string name="main_title">Glass Clock</string>
     <string name="main_no_widget_title">No widget placed yet</string>
@@ -48,6 +82,16 @@
     <string name="section_clock_date">Clock and date</string>
     <string name="section_weather">Weather</string>
     <string name="section_calendar">Calendar</string>
+    <string name="section_top_line">Line above the clock</string>
+    <string name="top_line_body">Shows the most useful thing right now, up to two at once: weather warnings, an event starting soon (with a countdown), rain starting or easing, your next alarm, or your next event. Tap it to open what it’s about.</string>
+    <string name="top_rain">Rain starting or easing</string>
+    <string name="top_rain_sub">Within the next 2 hours, from 15-minute forecasts</string>
+    <string name="top_alarm">Next alarm</string>
+    <string name="top_alarm_sub">When it’s within 12 hours</string>
+    <string name="top_warnings">Met Office weather warnings</string>
+    <string name="top_warnings_region">Your region: %1$s</string>
+    <string name="top_warnings_uk_only">UK only. Set a UK location in Weather to use this.</string>
+    <string name="top_events_note">Calendar events are switched on and set up in Calendar below. An event with a location opens Maps when tapped.</string>
     <string name="section_taps">Tap targets</string>
     <string name="section_reliability">Keep it updating</string>
 
@@ -103,6 +147,10 @@
     <string name="detail_humidity">Humidity</string>
     <string name="detail_uv">UV index</string>
     <string name="detail_aqi">Air quality</string>
+    <string name="detail_pollen">Pollen</string>
+    <string name="detail_moon">Moon phase</string>
+    <string name="detail_tomorrow">Tomorrow</string>
+    <string name="detail_hourly">Hourly forecast</string>
     <string name="refresh_now">Refresh weather now</string>
     <string name="weather_source">Temperatures and conditions come from the UK Met Office (its 2 km UK model, 10 km global elsewhere) via Open-Meteo. Rain chance is the highest hourly chance over the next 3 hours, from Open-Meteo’s ensemble forecast. Updated every 30 minutes.</string>
 
