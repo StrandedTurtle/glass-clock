@@ -3,7 +3,7 @@ package com.dylan.glasswidget.widget
 import androidx.datastore.preferences.core.Preferences
 import com.dylan.glasswidget.data.CalendarEvent
 import com.dylan.glasswidget.data.ClockFace
-import com.dylan.glasswidget.data.Ics
+import com.dylan.glasswidget.data.CalendarLink
 import com.dylan.glasswidget.data.ClockStyle
 import com.dylan.glasswidget.data.DatePreset
 import com.dylan.glasswidget.data.GlassVariant
@@ -41,7 +41,7 @@ data class WidgetSettings(
     val deviceLon: Double? = null,
     val showEvents: Boolean = false,
     val useDeviceCalendars: Boolean = true,
-    val calendarLinks: List<String> = emptyList(),
+    val calendarLinks: List<CalendarLink> = emptyList(),
     val eventsAllDay: Boolean = true,
 ) {
     /** Where this widget wants weather for, or null if the user hasn't picked anywhere yet. */
@@ -56,7 +56,7 @@ data class WidgetSettings(
     val fahrenheit: Boolean get() = tempUnit == TempUnit.F
 
     /** Cache tags of this widget's calendar links. */
-    val linkSources: Set<String> get() = calendarLinks.map(Ics::sourceKey).toSet()
+    val linkSources: Set<String> get() = calendarLinks.map { it.source }.toSet()
 
     /** Events from the sources this widget has switched on. */
     fun visibleEvents(all: List<CalendarEvent>): List<CalendarEvent> =
@@ -87,7 +87,7 @@ data class WidgetSettings(
             deviceLon = p[WidgetPrefsKeys.DEVICE_LON],
             showEvents = p[WidgetPrefsKeys.SHOW_EVENTS] ?: false,
             useDeviceCalendars = p[WidgetPrefsKeys.USE_DEVICE_CALENDARS] ?: true,
-            calendarLinks = p[WidgetPrefsKeys.CALENDAR_LINKS].orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() },
+            calendarLinks = CalendarLink.decode(p[WidgetPrefsKeys.CALENDAR_LINKS]),
             eventsAllDay = p[WidgetPrefsKeys.EVENTS_ALL_DAY] ?: true,
         )
     }

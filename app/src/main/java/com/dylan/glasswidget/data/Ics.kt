@@ -285,6 +285,15 @@ object Ics {
     private fun unescape(s: String) =
         s.replace("\\n", " ").replace("\\N", " ").replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\").trim()
 
+    /** The feed's own calendar name (X-WR-CALNAME), e.g. "Personal", if it has one. */
+    fun calendarName(text: String): String? =
+        unfold(text).firstOrNull { it.startsWith("X-WR-CALNAME", true) }
+            ?.let { parseProp(it)?.value }?.let(::unescape)?.takeIf { it.isNotBlank() }
+
+    /** A short readable label for a link with no name: its host, e.g. "calendar.proton.me". */
+    fun shortLabel(url: String): String =
+        normaliseUrl(url).substringAfter("://").substringBefore('/').ifBlank { url.take(32) }
+
     /** "webcal://…" -> "https://…"; anything else unchanged. */
     fun normaliseUrl(url: String): String = url.trim().let {
         if (it.startsWith("webcal://", true)) "https://" + it.substring(9) else it

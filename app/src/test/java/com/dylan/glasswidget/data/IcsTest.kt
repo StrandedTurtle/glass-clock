@@ -103,8 +103,24 @@ class IcsTest {
         assertEquals(listOf("With alarm"), got.map { it.title })
     }
 
+    @Test fun calendarNameAndShortLabel() {
+        assertEquals("My calendar", Ics.calendarName("BEGIN:VCALENDAR\r\nX-WR-CALNAME:My calendar\r\nEND:VCALENDAR"))
+        assertEquals(null, Ics.calendarName(cal()))
+        assertEquals("calendar.proton.me", Ics.shortLabel("https://calendar.proton.me/api/calendar/v1/url/abc/calendar.ics?x=1"))
+    }
+
     @Test fun urlHelpers() {
         assertEquals("https://calendar.proton.me/a.ics", Ics.normaliseUrl("  webcal://calendar.proton.me/a.ics "))
         assertEquals(Ics.sourceKey("webcal://h/a.ics"), Ics.sourceKey("https://h/a.ics"))
+    }
+
+    @Test fun calendarLinkListRoundTripsAndReadsOldFormat() {
+        val links = listOf(CalendarLink("Personal", "https://calendar.proton.me/a.ics"), CalendarLink("Work", "webcal://x.org/b.ics"))
+        assertEquals(links, CalendarLink.decode(CalendarLink.encode(links)))
+        // the previous version stored bare URLs, one per line
+        assertEquals(listOf(CalendarLink("calendar.proton.me", "https://calendar.proton.me/a.ics")),
+            CalendarLink.decode("https://calendar.proton.me/a.ics\n\n"))
+        // the same feed twice (webcal vs https) is kept once
+        assertEquals(1, CalendarLink.decode("A\thttps://x.org/b.ics\nB\twebcal://x.org/b.ics").size)
     }
 }

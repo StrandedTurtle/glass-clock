@@ -41,6 +41,6 @@ object WidgetPrefsKeys {
     // Calendar
     val SHOW_EVENTS = booleanPreferencesKey("show_events")
     val USE_DEVICE_CALENDARS = booleanPreferencesKey("use_device_calendars")
-    val CALENDAR_LINKS = stringPreferencesKey("calendar_links") // one .ics URL per line
+    val CALENDAR_LINKS = stringPreferencesKey("calendar_links") // CalendarLink.encode: "name<TAB>url" per line
     val EVENTS_ALL_DAY = booleanPreferencesKey("events_all_day")
 }

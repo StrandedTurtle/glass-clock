@@ -142,18 +142,18 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         WidgetSize.Tall -> 3
         WidgetSize.Large -> 4
     }
-    var lines = packed.take(maxLines)
-    var showEvent = event != null && size != WidgetSize.Standard
+    // Your next event is a line in the same card, right under date and weather. When space is short the
+    // extra weather lines give way first; the event only goes if the clock would get really small.
+    var showEvent = event != null && size != WidgetSize.Compact
+    var lines = packed.take((maxLines - if (showEvent) 1 else 0).coerceAtLeast(1))
     val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
-        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + 16f
-        val pills = card + m.gapDp + if (showEvent) m.pillHeightDp + m.gapDp else 0f
-        return minOf(heightDp - pills, widthDp / clockAspectWidth)
+        val count = lines.size + if (showEvent) 1 else 0
+        val card = count * m.lineHeightDp + (count - 1) * LINE_GAP_DP + 16f
+        return minOf(heightDp - card - m.gapDp, widthDp / clockAspectWidth)
     }
-    // Never let the glass squeeze the clock below ~40% of the widget: drop lines, then the event.
-    while (digitHeight() < heightDp * 0.4f && (lines.size > 1 || showEvent)) {
-        if (lines.size > 1) lines = lines.dropLast(1) else showEvent = false
-    }
+    while (lines.size > 1 && digitHeight() < heightDp * 0.4f) lines = lines.dropLast(1)
+    if (showEvent && digitHeight() < heightDp * 0.3f) showEvent = false
     val digitsDp = (digitHeight() * s.clockScale).coerceAtLeast(24f)
 
     val hAlign = if (s.alignment == WidgetAlignment.Center) Alignment.CenterHorizontally else Alignment.Start
@@ -197,19 +197,26 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     ) {
         digits(GlanceModifier.fillMaxWidth().height(digitsDp.dp))
         Spacer(GlanceModifier.height(gap))
-        InfoCard(context, s, palette, m, weather, location == null, dateIntent, weatherIntent, lines.map { row -> row.map { items[it] } })
-        if (showEvent && event != null) {
-            Spacer(GlanceModifier.height(gap))
-            // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
-            val eventIntent = if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event)
-            EventPill(context, palette, m, event, eventIntent, now, zone, use24h)
-        }
+        // Phone-calendar events open themselves; link events (e.g. Proton) open the calendar app.
+        val eventLine: @Composable (() -> Unit)? = if (showEvent && event != null) {
+            {
+                EventLine(
+                    context, palette, m, event,
+                    if (event.fromLink) dateIntent else CalendarRepository.viewIntent(event),
+                    now, zone, use24h,
+                )
+            }
+        } else null
+        InfoCard(
+            context, s, palette, m, weather, location == null, dateIntent, weatherIntent,
+            lines.map { row -> row.map { items[it] } }, eventLine,
+        )
     }
 }
 
 /**
  * One glass card: "date | icon temperature" then the chosen details, continuing on the first line while
- * they fit and wrapping onto further lines inside the same glass. Date and weather are separate taps.
+ * they fit; your next event on its own line; then any details that wrapped. Each part is its own tap.
  */
 @Composable
 private fun InfoCard(
@@ -222,6 +229,7 @@ private fun InfoCard(
     dateIntent: Intent?,
     weatherIntent: Intent?,
     lines: List<List<DetailItem>>,
+    eventLine: (@Composable () -> Unit)?,
 ) {
     GlassCard(palette) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -236,6 +244,10 @@ private fun InfoCard(
                     }
                 }
             }
+        }
+        if (eventLine != null) {
+            Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
+            eventLine()
         }
         lines.drop(1).forEach { line ->
             Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
@@ -265,8 +277,9 @@ private fun DetailChip(context: Context, palette: GlassPalette, m: Metrics, item
     }
 }
 
+/** "📅 11:30  Dentist" as one line of the glass card; taps open the event (or your calendar app). */
 @Composable
-private fun EventPill(
+private fun EventLine(
     context: Context,
     palette: GlassPalette,
     m: Metrics,
@@ -277,7 +290,7 @@ private fun EventPill(
     use24h: Boolean,
 ) {
     TapZone(intent) {
-        GlassPill(palette) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             GlassIcon(R.drawable.ic_d_event, m.iconDp - 1, palette)
             Spacer(GlanceModifier.width(6.dp))
             LabelText(

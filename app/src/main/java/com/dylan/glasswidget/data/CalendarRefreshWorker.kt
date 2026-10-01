@@ -65,7 +65,7 @@ class CalendarRefreshWorker(appContext: Context, params: WorkerParameters) :
         private suspend fun configuredLinks(context: Context): List<String> =
             GlanceAppWidgetManager(context).getGlanceIds(GlassClockWidget::class.java).flatMap { id ->
                 WidgetSettings.from(getAppWidgetState(context, PreferencesGlanceStateDefinition, id)).calendarLinks
-            }.map(Ics::normaliseUrl).distinct()
+            }.map { Ics.normaliseUrl(it.url) }.distinct()
 
         /** Watch the calendar for changes. KEEP from the app; the worker itself appends its successor. */
         fun observe(context: Context, policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP) {

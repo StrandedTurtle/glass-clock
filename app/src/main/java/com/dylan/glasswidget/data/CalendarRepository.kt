@@ -51,11 +51,14 @@ object CalendarRepository {
         }.getOrDefault(emptyList())
     }
 
+    /** A calendar Android shares with other apps, with readable names. */
+    data class PhoneCalendar(val name: String, val account: String)
+
     /**
-     * Names of the calendars Android shares with other apps ("Personal · you@gmail.com"), for showing
-     * in settings which calendars the widget can actually see. Null without permission.
+     * The calendars Android shares with other apps, for showing in settings which ones the widget can
+     * actually see. Null without permission.
      */
-    fun visibleCalendars(context: Context): List<String>? {
+    fun visibleCalendars(context: Context): List<PhoneCalendar>? {
         if (!hasPermission(context)) return null
         val projection = arrayOf(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CalendarContract.Calendars.ACCOUNT_NAME)
         return runCatching {
@@ -65,13 +68,21 @@ object CalendarRepository {
             )?.use { c ->
                 buildList {
                     while (c.moveToNext()) {
-                        val name = c.getString(0).orEmpty()
-                        val account = c.getString(1).orEmpty()
-                        add(if (account.isBlank() || account == name) name else "$name · $account")
+                        add(PhoneCalendar(readable(c.getString(0).orEmpty()), readable(c.getString(1).orEmpty())))
                     }
                 }
             }.orEmpty()
         }.getOrDefault(emptyList())
+    }
+
+    // Some ROMs (Xiaomi's calendar) store resource keys instead of names for their built-in calendars.
+    private fun readable(raw: String): String = when (raw) {
+        "calendar_displayname_local" -> "Phone calendar"
+        "calendar_displayname_birthday" -> "Birthdays"
+        "account_name_local", "" -> "On this phone"
+        else -> if (raw.startsWith("calendar_displayname_")) {
+            raw.removePrefix("calendar_displayname_").replace('_', ' ').replaceFirstChar { it.uppercase() }
+        } else raw
     }
 
     /** Opens the event in the user's calendar app. */

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -56,7 +57,9 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.dylan.glasswidget.R
+import com.dylan.glasswidget.data.CalendarLink
 import com.dylan.glasswidget.data.CalendarLinks
+import com.dylan.glasswidget.data.Ics
 import com.dylan.glasswidget.data.CalendarRefreshWorker
 import com.dylan.glasswidget.data.CalendarRepository
 import com.dylan.glasswidget.data.ClockFace
@@ -389,7 +392,7 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var permissionMessage by remember { mutableStateOf<String?>(null) }
-        var visible by remember { mutableStateOf<List<String>?>(null) }
+        var visible by remember { mutableStateOf<List<CalendarRepository.PhoneCalendar>?>(null) }
         var hasPermission by remember { mutableStateOf(CalendarRepository.hasPermission(context)) }
         val data by WidgetDataStore.flow(context).collectAsState(initial = null)
 
@@ -421,81 +424,128 @@ private fun CalendarSection(s: WidgetSettings, edit: Edit, onEventsLoaded: () ->
             if (on) reload()
         }
         if (!s.showEvents) return@Section
+        Expandable(stringResource(R.string.cal_how_title)) { Hint(stringResource(R.string.cal_how_body)) }
 
         // ---- Source 1: calendars synced into Android ----
-        Label(stringResource(R.string.cal_phone_title))
-        Hint(stringResource(R.string.cal_phone_body))
-        SwitchRow(stringResource(R.string.cal_phone_switch), null, s.useDeviceCalendars && hasPermission) { on ->
+        SwitchRow(stringResource(R.string.cal_phone_switch), stringResource(R.string.cal_phone_sub), s.useDeviceCalendars && hasPermission) { on ->
             if (!on) edit { it[WidgetPrefsKeys.USE_DEVICE_CALENDARS] = false }
             else if (hasPermission) { edit { it[WidgetPrefsKeys.USE_DEVICE_CALENDARS] = true }; reload() }
             else permission.launch(Manifest.permission.READ_CALENDAR)
         }
         if (s.useDeviceCalendars && hasPermission) {
-            val names = visible
+            val calendars = visible
             val upcoming = data?.events?.count { !it.fromLink } ?: 0
-            Hint(
-                when {
-                    names == null -> stringResource(R.string.cal_phone_checking)
-                    names.isEmpty() -> stringResource(R.string.cal_phone_none)
-                    else -> stringResource(R.string.cal_phone_found, names.size, names.joinToString(", "), upcoming)
+            when {
+                calendars == null -> Hint(stringResource(R.string.cal_phone_checking))
+                calendars.isEmpty() -> Hint(stringResource(R.string.cal_phone_none))
+                else -> Expandable(stringResource(R.string.cal_phone_summary, calendars.size, upcoming)) {
+                    calendars.groupBy { it.account }.forEach { (account, list) ->
+                        Text(account, style = MaterialTheme.typography.labelLarge)
+                        list.forEach { Hint("• " + it.name) }
+                    }
+                    Hint(stringResource(R.string.cal_phone_missing))
                 }
-            )
+            }
         }
         permissionMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         // ---- Source 2: calendar links (.ics), e.g. Proton ----
         Label(stringResource(R.string.cal_link_title))
-        Hint(stringResource(R.string.cal_link_body))
-        var text by remember(s.calendarLinks) { mutableStateOf(s.calendarLinks.joinToString("\n")) }
-        var status by remember { mutableStateOf<List<String>>(emptyList()) }
-        var checking by remember { mutableStateOf(false) }
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = { Text(stringResource(R.string.cal_link_hint)) },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 2,
-        )
-        Button(
-            enabled = !checking,
-            onClick = {
-                val links = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                edit { it[WidgetPrefsKeys.CALENDAR_LINKS] = links.joinToString("\n") }
-                checking = true
-                scope.launch {
-                    val now = System.currentTimeMillis()
-                    val zone = java.time.ZoneId.systemDefault()
-                    val use24 = android.text.format.DateFormat.is24HourFormat(context)
-                    status = links.map { url ->
-                        runCatching { CalendarLinks.fetch(url, now) }.fold(
-                            onSuccess = { events ->
-                                val next = WidgetText.pickEvent(events, now, zone, s.eventsAllDay)
-                                if (next == null) context.getString(R.string.cal_link_ok_none, events.size)
-                                else context.getString(
-                                    R.string.cal_link_ok, events.size,
-                                    WidgetText.eventWhen(
-                                        next, now, zone, use24,
-                                        context.getString(R.string.event_now),
-                                        context.getString(R.string.event_today),
-                                        context.getString(R.string.event_tomorrow),
-                                    ) + " · " + next.title,
-                                )
-                            },
-                            onFailure = { context.getString(R.string.cal_link_failed, it.message ?: it.javaClass.simpleName) },
-                        )
-                    }
-                    withContext(Dispatchers.IO) { CalendarRefreshWorker.refreshAndRedraw(context, fetchLinks = true) }
-                    checking = false
-                    onEventsLoaded()
+        val linkCounts = data?.events.orEmpty().filter { it.fromLink }.groupingBy { it.source }.eachCount()
+        s.calendarLinks.forEach { link ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(link.name, style = MaterialTheme.typography.bodyLarge)
+                    Hint(stringResource(R.string.cal_link_item, Ics.shortLabel(link.url), linkCounts[link.source] ?: 0))
                 }
-            },
-        ) { Text(stringResource(if (checking) R.string.cal_link_checking else R.string.cal_link_save)) }
-        status.forEach { Hint(it) }
+                TextButton(onClick = {
+                    edit { it[WidgetPrefsKeys.CALENDAR_LINKS] = CalendarLink.encode(s.calendarLinks - link) }
+                    reload()
+                }) { Text(stringResource(R.string.cal_link_remove)) }
+            }
+        }
+        if (s.calendarLinks.isEmpty()) Hint(stringResource(R.string.cal_link_empty))
+        var adding by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { adding = true }) { Text(stringResource(R.string.cal_link_add)) }
+        if (adding) {
+            AddLinkDialog(
+                existing = s.calendarLinks,
+                onAdded = { link ->
+                    adding = false
+                    edit { it[WidgetPrefsKeys.CALENDAR_LINKS] = CalendarLink.encode(s.calendarLinks + link) }
+                    reload()
+                },
+                onDismiss = { adding = false },
+            )
+        }
 
         SwitchRow(stringResource(R.string.events_all_day), null, s.eventsAllDay) { on ->
             edit { it[WidgetPrefsKeys.EVENTS_ALL_DAY] = on }
         }
     }
+
+/** Paste a link; it's downloaded and checked before it's saved, under the calendar's own name. */
+@Composable
+private fun AddLinkDialog(existing: List<CalendarLink>, onAdded: (CalendarLink) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var url by remember { mutableStateOf("") }
+    var checking by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = { if (!checking) onDismiss() },
+        title = { Text(stringResource(R.string.cal_link_add)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Hint(stringResource(R.string.cal_link_steps))
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it; error = null },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.cal_link_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (checking) Hint(stringResource(R.string.cal_link_checking))
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = url.isNotBlank() && !checking,
+                onClick = {
+                    val clean = url.trim()
+                    if (existing.any { it.source == Ics.sourceKey(clean) }) {
+                        error = context.getString(R.string.cal_link_duplicate); return@TextButton
+                    }
+                    checking = true
+                    scope.launch {
+                        runCatching { CalendarLinks.load(clean) }
+                            .onSuccess { onAdded(CalendarLink(it.name ?: Ics.shortLabel(clean), clean)) }
+                            .onFailure { error = context.getString(R.string.cal_link_failed, it.message ?: it.javaClass.simpleName) }
+                        checking = false
+                    }
+                },
+            ) { Text(stringResource(R.string.cal_link_confirm)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !checking) { Text(stringResource(R.string.picker_close)) } },
+    )
+}
+
+/** A heading that shows or hides its details. */
+@Composable
+private fun Expandable(title: String, content: @Composable ColumnScope.() -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(if (open) "▲" else "▼", color = MaterialTheme.colorScheme.primary)
+        }
+        if (open) Column(Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+    }
+}
 
 @Composable
 private fun Hint(text: String) =
