@@ -20,7 +20,10 @@ Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use 
 - **Live preview in settings**: the settings screen shows the real widget on your actual home-screen
   wallpaper and re-renders it as you change anything. No wallpaper permission is needed; the window
   simply lets the system wallpaper show through.
-- **Weather**: Open-Meteo (no API key). Pick a city by search, or use coarse device location.
+- **Weather**: via Open-Meteo (no API key). Temperatures and conditions from the UK Met Office models
+  (UKV 2 km over the UK/Ireland, global 10 km elsewhere), with per-field fallback to Open-Meteo's
+  default blend; rain chance is the highest hourly chance over the next 3 hours (ensemble forecast).
+  Pick a city by search, or use coarse device location.
 - **Tap targets**: clock, date and weather each open an app you choose; the event opens in your calendar.
 - **Per-widget settings**: glass or solid digits, frosted/clear glass, tint (Frost, Smoke, light glass
   with dark text, wallpaper colours), centre/left alignment, text size, 12/24h, colon, date format, units.

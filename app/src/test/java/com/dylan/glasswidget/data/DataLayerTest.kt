@@ -51,6 +51,60 @@ class DataLayerTest {
         assertEquals(61, b.weatherCode)
     }
 
+    // Hourly chances at UTC+1: 10:00 local = 09:00Z.
+    private val hourlyJson = """
+        {"utc_offset_seconds":3600,
+         "current":{"temperature_2m":14.0,"weather_code":0,"is_day":1},
+         "daily":{"precipitation_probability_max":[96]},
+         "hourly":{"time":["2026-10-01T03:00","2026-10-01T09:00","2026-10-01T10:00","2026-10-01T11:00",
+                           "2026-10-01T12:00","2026-10-01T13:00","2026-10-01T14:00"],
+                   "precipitation_probability":[96,50,10,20,5,40,90]}}
+    """.trimIndent()
+
+    @Test fun rainChanceIsTheNextFewHoursNotTheWholeDay() {
+        // 10:20 local: the 10:00 hour in progress plus 11:00, 12:00, 13:00 -> max(10, 20, 5, 40) = 40.
+        // The 03:00 (96%) and 14:00 (90%) hours are outside the window.
+        val now = java.time.Instant.parse("2026-10-01T09:20:00Z").toEpochMilli()
+        assertEquals(40, OpenMeteoApi.parseForecast(hourlyJson, now).precipChancePct)
+        // Without hourly data it falls back to the day's maximum.
+        assertEquals(80, OpenMeteoApi.parseForecast(forecastJson, now).precipChancePct)
+    }
+
+    @Test fun metOfficeValuesWinWithBlendFallbacksAndEnsembleRain() = runBlocking {
+        val metOffice = """{"utc_offset_seconds":3600,
+            "current":{"temperature_2m":12.5,"weather_code":3,"is_day":1,"relative_humidity_2m":null,"wind_speed_10m":20.0},
+            "daily":{"temperature_2m_max":[15.0],"temperature_2m_min":[8.0]}}"""
+        val api = OpenMeteoApi { url ->
+            when {
+                "air-quality" in url -> "{}"
+                "models=ukmo_seamless" in url -> metOffice
+                else -> forecastJson
+            }
+        }
+        val s = api.fetchCurrent(51.5, -0.12, nowMs = 1)
+        assertEquals(true, s.metOffice)
+        assertEquals(12.5, s.tempC, 0.0)        // Met Office
+        assertEquals(3, s.weatherCode)          // Met Office
+        assertEquals(20.0, s.windKmh!!, 0.0)    // Met Office
+        assertEquals(87, s.humidityPct)         // missing from Met Office -> blend
+        assertEquals(2.45, s.uvIndexMax!!, 0.0) // missing from Met Office -> blend
+        assertEquals(80, s.precipChancePct)     // always the ensemble blend
+        assertEquals(4, s.sunEvents.size)       // blend's sunrise/sunset
+    }
+
+    @Test fun metOfficeOutageFallsBackToTheBlend() = runBlocking {
+        val api = OpenMeteoApi { url ->
+            when {
+                "air-quality" in url -> "{}"
+                "models=ukmo_seamless" in url -> error("503")
+                else -> forecastJson
+            }
+        }
+        val s = api.fetchCurrent(51.5, -0.12, nowMs = 1)
+        assertEquals(false, s.metOffice)
+        assertEquals(13.4, s.tempC, 0.0)
+    }
+
     @Test fun forecastWithoutDailyOrIsDayStillParses() {
         val s = OpenMeteoApi.parseForecast(
             """{"current":{"temperature_2m":5.0,"weather_code":3}}""", 1L

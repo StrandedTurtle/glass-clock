@@ -383,6 +383,7 @@ private fun WeatherSection(s: WidgetSettings, edit: Edit) = Section(stringResour
         edit { it[WidgetPrefsKeys.WEATHER_DETAILS] = next.map(WeatherDetail::key).toSet() }
     }
 
+    Hint(stringResource(R.string.weather_source))
     TextButton(onClick = { WeatherRefreshWorker.refreshNow(context) }) { Text(stringResource(R.string.refresh_now)) }
 }
 

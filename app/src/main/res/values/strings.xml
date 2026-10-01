@@ -98,12 +98,13 @@
     <string name="detail_high_low">High / low</string>
     <string name="detail_sun">Sunrise / sunset</string>
     <string name="detail_feels">Feels like</string>
-    <string name="detail_rain">Rain chance</string>
+    <string name="detail_rain">Rain chance (next 3h)</string>
     <string name="detail_wind">Wind</string>
     <string name="detail_humidity">Humidity</string>
     <string name="detail_uv">UV index</string>
     <string name="detail_aqi">Air quality</string>
     <string name="refresh_now">Refresh weather now</string>
+    <string name="weather_source">Temperatures and conditions come from the UK Met Office (its 2 km UK model, 10 km global elsewhere) via Open-Meteo. Rain chance is the highest hourly chance over the next 3 hours, from Open-Meteo’s ensemble forecast. Updated every 30 minutes.</string>
 
     <string name="show_events">Show next event</string>
     <string name="show_events_body">Your next event shows as a line of text above the clock.</string>

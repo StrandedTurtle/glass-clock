@@ -9,14 +9,23 @@ import kotlinx.serialization.Serializable
 data class OpenMeteoResponse(
     val current: CurrentBlock,
     val daily: DailyBlock? = null,
+    val hourly: HourlyBlock? = null,
     @SerialName("utc_offset_seconds") val utcOffsetSeconds: Int = 0,
 )
 
 @Serializable
+data class HourlyBlock(
+    // Local wall-clock hours at the location, e.g. "2026-10-01T10:00".
+    val time: List<String> = emptyList(),
+    @SerialName("precipitation_probability") val precipProb: List<Double?> = emptyList(),
+)
+
+@Serializable
 data class CurrentBlock(
-    @SerialName("temperature_2m") val temperature2m: Double,
+    // Nullable: a single model (e.g. the Met Office's) can leave a field out; we fall back per field.
+    @SerialName("temperature_2m") val temperature2m: Double? = null,
     @SerialName("apparent_temperature") val apparentTemperature: Double? = null,
-    @SerialName("weather_code") val weatherCode: Int,
+    @SerialName("weather_code") val weatherCode: Int? = null,
     // 1 = daytime, 0 = night. Defaulted so a response without it still parses.
     @SerialName("is_day") val isDay: Int = 1,
     @SerialName("relative_humidity_2m") val humidity: Double? = null,
@@ -88,6 +97,8 @@ data class WeatherSnapshot(
     val usAqi: Int? = null,
     /** Today's and tomorrow's sunrise/sunset, oldest first. */
     val sunEvents: List<SunEvent> = emptyList(),
+    /** True when temperatures and conditions came from the UK Met Office models. */
+    val metOffice: Boolean = false,
 )
 
 /** Everything cached, keyed by [LocationKey] so several widgets can show different cities. */
