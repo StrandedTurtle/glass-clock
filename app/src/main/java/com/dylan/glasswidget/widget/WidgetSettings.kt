@@ -38,6 +38,8 @@ data class WidgetSettings(
     /** Card items in display and priority order (switched-off ones included). */
     val order: List<WeatherDetail> = WeatherDetail.cardItems,
     val cardLines: CardLines = CardLines.Auto,
+    /** The card shows the hourly view until this time (0 = normal view). */
+    val hourlyUntil: Long = 0L,
     val locationMode: LocationMode = LocationMode.City,
     val cityLat: Double? = null,
     val cityLon: Double? = null,
@@ -101,6 +103,7 @@ data class WidgetSettings(
             },
             order = WeatherDetail.order(p[WidgetPrefsKeys.WEATHER_ORDER]),
             cardLines = CardLines.from(p[WidgetPrefsKeys.CARD_LINES]),
+            hourlyUntil = p[WidgetPrefsKeys.HOURLY_UNTIL] ?: 0L,
             locationMode = LocationMode.from(p[WidgetPrefsKeys.LOCATION_MODE]),
             cityLat = p[WidgetPrefsKeys.CITY_LAT],
             cityLon = p[WidgetPrefsKeys.CITY_LON],

@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
+import androidx.glance.action.Action
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
@@ -30,7 +32,6 @@ import com.dylan.glasswidget.R
 import com.dylan.glasswidget.data.CalendarEvent
 import com.dylan.glasswidget.data.CalendarRepository
 import com.dylan.glasswidget.data.HourMode
-import com.dylan.glasswidget.data.HourForecast
 import com.dylan.glasswidget.data.RainOutlook
 import com.dylan.glasswidget.data.SmartLine
 import com.dylan.glasswidget.data.WarningLevel
@@ -75,12 +76,10 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
     val lineHeightDp: Float get() = maxOf(pillSp * 1.3f, iconDp.toFloat())
     val pillHeightDp: Float get() = lineHeightDp + 16f
 
-    /** Rough height of the hourly strip: hour label, icon, temperature. */
-    val hourlyHeightDp: Float get() = (pillSp - 1.5f) * 1.3f + 2f + iconDp + 2f + (pillSp - 0.5f) * 1.3f
-
-    /** Width of a detail item as [DetailChip] draws it: optional icon and gap, then its text. */
+    /** Width of a detail item as [DetailChip] draws it: optional label, optional icon, then its text. */
     fun itemWidthDp(item: DetailItem, widths: TextWidths): Float =
-        (if (item.icon != null) iconDp - 1f + 4f else 0f) + widths.dp(item.text, pillSp)
+        (item.label?.let { widths.dp(it, pillSp) + 4f } ?: 0f) +
+            (if (item.icon != null) iconDp - 1f + 4f else 0f) + widths.dp(item.text, pillSp)
 
     companion object {
         fun of(size: WidgetSize, scale: Float): Metrics {
@@ -98,7 +97,6 @@ private data class Metrics(val pillSp: Float, val iconDp: Int, val gapDp: Float)
 private const val ITEM_GAP_DP = 12f
 private const val LINE_GAP_DP = 5f
 private const val EVENT_GAP_DP = 4f
-private const val HOUR_SLOT_DP = 44f
 private const val PILL_PADDING_DP = 30f // 14dp each side + rim
 
 @Suppress("UNUSED_PARAMETER") // [minute] is a recomposition key: each tick re-runs this with the new time
@@ -142,8 +140,8 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         ?: context.getString(if (location == null) R.string.set_location else R.string.temp_placeholder)
     val firstLineUsed = widths.dp(dateText, m.pillSp) + 21f + m.iconDp + 5f + widths.dp(tempText, m.pillSp, bold = true)
     val itemWidths = items.map { m.itemWidthDp(it, widths) }
-    fun pack(maxRows: Int) = WidgetText.packRows(
-        itemWidths, maxLine, ITEM_GAP_DP, perRow = 5, firstRowUsed = firstLineUsed, firstRowMax = 4, maxRows = maxRows,
+    fun pack(maxRows: Int, w: List<Float> = itemWidths) = WidgetText.packRows(
+        w, maxLine, ITEM_GAP_DP, perRow = 5, firstRowUsed = firstLineUsed, firstRowMax = 4, maxRows = maxRows,
     )
     // Lines the card may use: the user's choice, or by widget height on Auto.
     val autoLines = s.cardLines.lines == null
@@ -171,20 +169,20 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
     val smart = pickSmart(smartItems, widthDp, m.pillSp, widths)
     var showSmart = smart.isNotEmpty() && size != WidgetSize.Compact
 
-    // ---- Hourly strip inside the card ----
-    val hourSlots = (maxLine / HOUR_SLOT_DP).toInt().coerceIn(3, 6)
-    val hours = if (WeatherDetail.Hourly in s.details) weather?.hourly.orEmpty().take(hourSlots) else emptyList()
-    var showHourly = hours.size >= 3 && size != WidgetSize.Compact
+    // ---- Hourly view: tapping the temperature flips the card's items to the coming hours ----
+    val hourlyOn = WeatherDetail.Hourly in s.details && weather != null && size != WidgetSize.Compact
+    val hours = if (hourlyOn) hourItems(weather!!, s.fahrenheit, now, zone, use24h) else emptyList()
+    val flipAction = if (hourlyOn && hours.isNotEmpty()) actionRunCallback<ToggleHourly>() else null
+    val showingHourly = flipAction != null && now < s.hourlyUntil
 
-    // When space is short, items at the end of the user's list give way first (a whole line at a time),
-    // then the hourly strip; the smart line only goes if the clock would get tiny. A fixed line count is
-    // honoured unless the clock would shrink below a quarter of the height.
+    // When space is short, items at the end of the user's list give way first (a whole line at a time);
+    // the smart line only goes if the clock would get tiny. A fixed line count is honoured unless the
+    // clock would shrink below a quarter of the height.
     var rowLimit = maxLines.coerceAtLeast(1)
     var lines = pack(rowLimit)
     val clockAspectWidth = WidgetText.clockWidth(clockText, 1f, s.clockFace)
     fun digitHeight(): Float {
-        val hourly = if (showHourly) m.hourlyHeightDp + LINE_GAP_DP else 0f
-        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + hourly + 16f
+        val card = lines.size * m.lineHeightDp + (lines.size - 1) * LINE_GAP_DP + 16f
         val smartLine = if (showSmart) m.lineHeightDp + EVENT_GAP_DP else 0f
         return minOf(heightDp - card - m.gapDp - smartLine, widthDp / clockAspectWidth)
     }
@@ -193,9 +191,14 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         rowLimit = lines.size - 1
         lines = pack(rowLimit)
     }
-    if (showHourly && digitHeight() < heightDp * minShare) showHourly = false
     if (showSmart && digitHeight() < heightDp * 0.3f) showSmart = false
     val digitsDp = (digitHeight() * s.clockScale).coerceAtLeast(24f)
+    // The hourly view takes the same lines as the items, so the card doesn't change size when it flips.
+    val cardRows: List<List<DetailItem>> = if (showingHourly) {
+        pack(lines.size.coerceAtLeast(1), hours.map { m.itemWidthDp(it, widths) }).map { row -> row.map { hours[it] } }
+    } else {
+        lines.map { row -> row.map { items[it] } }
+    }
 
     val hAlign = if (s.alignment == WidgetAlignment.Center) Alignment.CenterHorizontally else Alignment.Start
     val gap = m.gapDp.dp
@@ -257,17 +260,14 @@ private fun GlassClockContent(context: Context, appWidgetId: Int, s: WidgetSetti
         }
         digits(GlanceModifier.fillMaxWidth().height(digitsDp.dp))
         Spacer(GlanceModifier.height(gap))
-        InfoCard(
-            context, s, palette, m, weather, location == null, dateIntent, weatherIntent,
-            lines.map { row -> row.map { items[it] } },
-            hours = if (showHourly) hours else emptyList(), use24h = use24h, zone = zone,
-        )
+        InfoCard(context, s, palette, m, weather, location == null, dateIntent, weatherIntent, flipAction, cardRows)
     }
 }
 
 /**
  * One glass card: "date | icon temperature" then the chosen details, continuing on the first line while
- * they fit, then any details that wrapped onto further lines. Date and weather are separate taps.
+ * they fit, then any details that wrapped onto further lines. The date and the details are separate
+ * taps; the temperature flips to the hourly view when that's on ([flip]), else opens the weather app.
  */
 @Composable
 private fun InfoCard(
@@ -279,28 +279,24 @@ private fun InfoCard(
     noLocation: Boolean,
     dateIntent: Intent?,
     weatherIntent: Intent?,
+    flip: Action?,
     lines: List<List<DetailItem>>,
-    hours: List<HourForecast>,
-    use24h: Boolean,
-    zone: ZoneId,
 ) {
     GlassCard(palette) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TapZone(dateIntent) { DateText(context, s.datePreset, m.pillSp, palette) }
             PillDivider(palette)
-            TapZone(weatherIntent) {
+            if (flip != null) ActionZone(flip) { TempInline(context, s, palette, m, weather, noLocation) }
+            else TapZone(weatherIntent) { TempInline(context, s, palette, m, weather, noLocation) }
+            val first = lines.firstOrNull().orEmpty()
+            if (first.isNotEmpty()) TapZone(weatherIntent) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TempInline(context, s, palette, m, weather, noLocation)
-                    lines.firstOrNull().orEmpty().forEach { item ->
+                    first.forEach { item ->
                         Spacer(GlanceModifier.width(ITEM_GAP_DP.dp))
                         DetailChip(context, palette, m, item)
                     }
                 }
             }
-        }
-        if (hours.isNotEmpty()) {
-            Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
-            TapZone(weatherIntent) { HourlyStrip(context, palette, m, hours, s, use24h, zone) }
         }
         lines.drop(1).forEach { line ->
             Spacer(GlanceModifier.height(LINE_GAP_DP.dp))
@@ -319,40 +315,21 @@ private fun InfoCard(
 /** Icon (if any) and text as a single child, so Glance's 10-per-row cap is never hit. */
 @Composable
 private fun DetailChip(context: Context, palette: GlassPalette, m: Metrics, item: DetailItem) {
-    if (item.icon == null) {
+    if (item.label != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LabelText(context, item.label, m.pillSp, palette, LabelStyle.Secondary)
+            Spacer(GlanceModifier.width(4.dp))
+            item.icon?.let { GlassIcon(it, m.iconDp - 1, palette) }
+            Spacer(GlanceModifier.width(4.dp))
+            LabelText(context, item.text, m.pillSp, palette)
+        }
+    } else if (item.icon == null) {
         LabelText(context, item.text, m.pillSp, palette, LabelStyle.Secondary)
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
             GlassIcon(item.icon, m.iconDp - 1, palette)
             Spacer(GlanceModifier.width(4.dp))
             LabelText(context, item.text, m.pillSp, palette)
-        }
-    }
-}
-
-/** The next few hours: time, icon and temperature in columns. One child per hour (Glance caps rows at 10). */
-@Composable
-private fun HourlyStrip(
-    context: Context,
-    palette: GlassPalette,
-    m: Metrics,
-    hours: List<HourForecast>,
-    s: WidgetSettings,
-    use24h: Boolean,
-    zone: ZoneId,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        hours.forEach { h ->
-            Column(
-                modifier = GlanceModifier.width(HOUR_SLOT_DP.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                LabelText(context, WidgetText.hourLabel(h.atEpochMs, zone, use24h), m.pillSp - 1.5f, palette, LabelStyle.Secondary)
-                Spacer(GlanceModifier.height(2.dp))
-                GlassIcon(WeatherCondition.from(h.weatherCode, h.isDay).iconRes(), m.iconDp, palette)
-                Spacer(GlanceModifier.height(2.dp))
-                LabelText(context, formatTemp(h.tempC, s.fahrenheit), m.pillSp - 0.5f, palette)
-            }
         }
     }
 }
@@ -391,6 +368,9 @@ private fun smartLabels(context: Context, fahrenheit: Boolean) = SmartLine.Label
     },
     chargeFull = { context.getString(R.string.smart_charge_full, it) },
     chargeTo80 = { context.getString(R.string.smart_charge_80, it) },
+    charging = { context.getString(R.string.smart_charging, it) },
+    charged80 = context.getString(R.string.smart_charged_80),
+    charged100 = context.getString(R.string.smart_charged_100),
     duration = { m ->
         if (m < 60) context.getString(R.string.duration_min, m)
         else context.getString(R.string.duration_h_min, m / 60, m % 60)

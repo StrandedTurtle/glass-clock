@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 
@@ -34,6 +35,8 @@ object WidgetPrefsKeys {
     // Set once the detail list has been saved with pollen/moon/tomorrow/hourly on offer.
     val WEATHER_DETAILS_REV = intPreferencesKey("weather_details_rev")
     val WEATHER_ORDER = stringPreferencesKey("weather_order") // WeatherDetail.encodeOrder
+    // Until when the card shows the hourly view (flipped by tapping the temperature).
+    val HOURLY_UNTIL = longPreferencesKey("hourly_until")
     val CARD_LINES = stringPreferencesKey("card_lines")
     val LOCATION_MODE = stringPreferencesKey("location_mode")
     val CITY_LAT = doublePreferencesKey("city_lat")

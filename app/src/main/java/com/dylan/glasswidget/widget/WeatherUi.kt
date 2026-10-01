@@ -54,8 +54,21 @@ fun WeatherCondition.labelRes(): Int = when (this) {
 
 fun WeatherSnapshot.condition(): WeatherCondition = WeatherCondition.from(weatherCode, isDay)
 
-/** One bit of weather in the pill. [icon] null = text only (condition, high/low). */
-data class DetailItem(@DrawableRes val icon: Int?, val text: String)
+/**
+ * One bit of weather in the card. [icon] null = text only (condition, high/low). [label] is a quieter
+ * prefix (the hour, in the hourly view).
+ */
+data class DetailItem(@DrawableRes val icon: Int?, val text: String, val label: String? = null)
+
+/** The coming hours as card items: "17  ☀ 19°". */
+fun hourItems(w: WeatherSnapshot, f: Boolean, nowMs: Long, zone: ZoneId, use24h: Boolean): List<DetailItem> =
+    w.hourly.filter { it.atEpochMs > nowMs }.map { h ->
+        DetailItem(
+            WeatherCondition.from(h.weatherCode, h.isDay).iconRes(),
+            formatTemp(h.tempC, f),
+            label = WidgetText.hourLabel(h.atEpochMs, zone, use24h),
+        )
+    }
 
 /** The switched-on card items that have data, in the user's order. */
 fun detailItems(

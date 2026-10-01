@@ -7,7 +7,7 @@
     android:fontFamily="sans-serif"
     android:format12Hour="EEE d MMM"
     android:format24Hour="EEE d MMM"
-    android:includeFontPadding="false"
+    android:includeFontPadding="true"
     android:singleLine="true"
     android:textColor="#FFFFFFFF"
     android:textSize="13sp" />

@@ -54,13 +54,45 @@ object Alarms {
 }
 
 object Battery {
-    /** Level and time to full while plugged in and charging; null otherwise. */
+    private const val PREFS = "battery_session"
+
+    /**
+     * Level, Android's time-to-full and the measured charge rate while plugged in; null otherwise.
+     * "Plugged in" comes from the power source, not "is charging", so a phone held at a charge limit
+     * (or paused by adaptive charging) still counts.
+     */
     fun charging(context: Context): SmartLine.Charging? {
-        val bm = context.getSystemService(BatteryManager::class.java) ?: return null
-        if (!bm.isCharging) return null
-        val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 } ?: return null
-        val full = runCatching { bm.computeChargeTimeRemaining() }.getOrDefault(-1L).takeIf { it > 0 }
-        return SmartLine.Charging(level, full)
+        val app = context.applicationContext
+        val status = runCatching {
+            app.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        }.getOrNull()
+        val plugged = (status?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!plugged) {
+            if (prefs.contains("start_ms")) prefs.edit().clear().apply()
+            return null
+        }
+        val bm = app.getSystemService(BatteryManager::class.java)
+        val level = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
+            ?: status?.let { s ->
+                val l = s.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = s.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+                if (l >= 0 && scale > 0) l * 100 / scale else null
+            } ?: return null
+        val full = runCatching { bm?.computeChargeTimeRemaining() }.getOrNull()?.takeIf { it > 0 }
+
+        // Measure the rate ourselves: Android often has no estimate on wireless pads or with a limit.
+        val now = System.currentTimeMillis()
+        val startMs = prefs.getLong("start_ms", 0L)
+        val startLevel = prefs.getInt("start_level", -1)
+        if (startMs == 0L || startLevel < 0 || level < startLevel) {
+            prefs.edit().putLong("start_ms", now).putInt("start_level", level).apply()
+            return SmartLine.Charging(level, full)
+        }
+        val hours = (now - startMs) / 3_600_000.0
+        // Wait for a couple of points (and a few minutes) so the first percent's timing doesn't skew it.
+        val rate = if (level - startLevel >= 2 && hours > 0.05) (level - startLevel) / hours else null
+        return SmartLine.Charging(level, full, rate)
     }
 }
 

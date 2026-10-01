@@ -34,6 +34,9 @@
     <string name="smart_alarm">Alarm %1$s</string>
     <string name="smart_charge_full">Full in %1$s</string>
     <string name="smart_charge_80">80%% in %1$s</string>
+    <string name="smart_charging">Charging · %1$d%%</string>
+    <string name="smart_charged_80">Charged to 80%</string>
+    <string name="smart_charged_100">Fully charged</string>
     <string name="duration_min">%1$d min</string>
     <string name="duration_h_min">%1$d h %2$d min</string>
     <string name="smart_uv_until">High UV (%1$d) until %2$s</string>
@@ -155,7 +158,7 @@
     <string name="top_alarm_unknown">an unknown app</string>
     <string name="top_alarm_none">No alarm set</string>
     <string name="top_charge">Charging time</string>
-    <string name="top_charge_sub">While plugged in, how long until the battery is full or at 80%</string>
+    <string name="top_charge_sub">While plugged in (wired or wireless): how long until full or 80%, measured from how fast it’s charging when the phone doesn’t say. Shows “Charged to 80%” once there, for phones with a charge limit</string>
     <string name="charge_off">Off</string>
     <string name="charge_full">To full</string>
     <string name="charge_80">To 80%</string>
@@ -174,7 +177,7 @@
     <string name="card_lines">Card lines</string>
     <string name="card_lines_hint">The most lines of items the card may use. Auto fits as many as the widget’s height allows while keeping the clock big.</string>
     <string name="lines_auto">Auto</string>
-    <string name="hourly_sub">The next few hours inside the card. Kept ahead of extra item lines.</string>
+    <string name="hourly_sub">Tap the temperature on the widget to flip the card to the next few hours; tap it again, or wait a minute, to flip back. With this on, the weather items (not the temperature) open your weather app.</string>
     <string name="weather_details">Show</string>
     <string name="detail_condition">Condition</string>
     <string name="detail_high_low">High / low</string>

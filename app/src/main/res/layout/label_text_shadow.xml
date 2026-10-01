@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:ellipsize="end"
     android:fontFamily="sans-serif"
-    android:includeFontPadding="false"
+    android:includeFontPadding="true"
     android:shadowColor="#66000000"
     android:shadowDy="1"
     android:shadowRadius="5"

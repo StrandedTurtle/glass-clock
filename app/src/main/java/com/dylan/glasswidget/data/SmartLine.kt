@@ -27,6 +27,9 @@ object SmartLine {
         val warning: (WarningLevel, String) -> String, // "Yellow warning: wind"
         val chargeFull: (String) -> String = { "Full in $it" },
         val chargeTo80: (String) -> String = { "80% in $it" },
+        val charging: (Int) -> String = { "Charging · $it%" },
+        val charged80: String = "Charged to 80%",
+        val charged100: String = "Fully charged",
         val duration: (Int) -> String = { m -> if (m < 60) "$m min" else "${m / 60} h ${m % 60} min" },
         val uvHighUntil: (Int, String) -> String = { uv, t -> "High UV ($uv) until $t" },
         val uvHighFrom: (Int, String) -> String = { uv, t -> "High UV ($uv) from $t" },
@@ -58,8 +61,11 @@ object SmartLine {
         val frost: Boolean = false,
     )
 
-    /** Battery state, when plugged in. [fullInMs] is Android's estimate to 100%, null if unknown. */
-    data class Charging(val levelPct: Int, val fullInMs: Long?)
+    /**
+     * Battery state while plugged in. [fullInMs] is Android's estimate to 100% (null if it has none);
+     * [pctPerHour] is the rate measured since it was plugged in (null until it has risen a little).
+     */
+    data class Charging(val levelPct: Int, val fullInMs: Long? = null, val pctPerHour: Double? = null)
 
     const val COUNTDOWN_MS = 60 * 60_000L
     const val ALARM_AHEAD_MS = 12 * 3_600_000L
@@ -123,21 +129,37 @@ object SmartLine {
         }
     }.sortedBy { it.priority }
 
-    /** "Full in 1 h 5 min" / "80% in 20 min"; null when off, unknown, or already there. */
+    /**
+     * "80% in 25 min" / "Full in 1 h 5 min"; "Charging · 62%" until there's enough to estimate from;
+     * "Charged to 80%" / "Fully charged" once there. Android's own estimate is used when it has one
+     * (often not on wireless pads or with a charge limit), otherwise the rate measured this session.
+     */
     fun chargeText(c: Charging, target: ChargeTarget, labels: Labels): String? {
-        val full = c.fullInMs ?: return null
-        if (full <= 0 || c.levelPct >= 100) return null
-        return when (target) {
-            ChargeTarget.Off -> null
-            ChargeTarget.Full -> labels.chargeFull(labels.duration(minutes(full)))
-            ChargeTarget.Eighty -> {
-                if (c.levelPct >= 80) return null
-                // Charging slows down near full, so the stretch to 80% goes faster than its share of the
-                // time to 100%; 0.8 of the proportional time is close to how phones taper.
-                val share = (80 - c.levelPct).toDouble() / (100 - c.levelPct)
-                labels.chargeTo80(labels.duration(minutes((full * share * 0.8).toLong())))
-            }
+        val goal = when (target) {
+            ChargeTarget.Off -> return null
+            ChargeTarget.Full -> 100
+            ChargeTarget.Eighty -> 80
         }
+        if (c.levelPct >= goal) return if (goal == 100) labels.charged100 else labels.charged80
+        val ms = etaMs(c, goal) ?: return labels.charging(c.levelPct)
+        val time = labels.duration(minutes(ms))
+        return if (goal == 100) labels.chargeFull(time) else labels.chargeTo80(time)
+    }
+
+    /** Time to [goal]%, or null when there's nothing to go on yet. */
+    fun etaMs(c: Charging, goal: Int): Long? {
+        val full = c.fullInMs?.takeIf { it > 0 }
+        if (full != null) {
+            if (goal == 100) return full
+            // Charging slows near full, so the stretch to 80% goes faster than its share of the time to
+            // 100%; 0.8 of the proportional time is close to how phones taper.
+            return (full * (goal - c.levelPct).toDouble() / (100 - c.levelPct) * 0.8).toLong()
+        }
+        val rate = c.pctPerHour?.takeIf { it > 0.5 } ?: return null
+        // The measured rate is the fast part; above 80% phones charge at roughly two-thirds of it.
+        val fast = (minOf(goal, 80) - c.levelPct).coerceAtLeast(0)
+        val slow = (goal - maxOf(c.levelPct, 80)).coerceAtLeast(0)
+        return ((fast / rate + slow / (rate * 0.66)) * 3_600_000L).toLong()
     }
 
     private fun minutes(ms: Long) = ceil(ms / 60_000.0).toInt().coerceAtLeast(1)

@@ -3,6 +3,7 @@ package com.dylan.glasswidget.widget
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.glance.GlanceModifier
+import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.layout.Alignment
@@ -22,6 +23,20 @@ fun TapZone(
     Box(
         modifier = if (intent != null) modifier.clickable(actionStartActivity(intent)) else modifier,
         contentAlignment = contentAlignment,
+        content = content,
+    )
+}
+
+/** Like [TapZone], for an in-widget action (e.g. flipping the card) instead of opening an app. */
+@Composable
+fun ActionZone(
+    action: Action?,
+    modifier: GlanceModifier = GlanceModifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = if (action != null) modifier.clickable(action) else modifier,
+        contentAlignment = Alignment.CenterStart,
         content = content,
     )
 }

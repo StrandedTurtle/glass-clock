@@ -11,14 +11,16 @@ Niagara Launcher's clock (it is an ordinary app widget, so any launcher can use 
   images, redrawn each minute by an exact, non-waking alarm. Solid style is a system-font `TextClock`.
 - **One glass card**: date | weather icon and temperature, then your chosen items (condition, high/low,
   sunrise/sunset, feels like, rain chance, wind, humidity, UV, air quality, pollen, moon phase, tomorrow)
-  wrapping onto extra lines inside the same glass, plus an **hourly strip**. You set the items' order in
+  wrapping onto extra lines inside the same glass. **Hourly**: tap the temperature and the card flips its
+  items to the coming hours (same size, same style); tap again or wait a minute to flip back. You set the items' order in
   settings, and it doubles as their priority: text is measured in the real system font, and when the
   card is full the items at the bottom of the list drop off a line at a time instead of being clipped.
   Card lines can be Auto (by widget height) or fixed at 1–3.
 - **Smart line above the clock** (like the lockscreen's top line): up to two of, most important first,
   Met Office weather warnings, an event starting soon with a countdown (tap opens Maps if it has a
   location), rain starting or easing in the next 2 hours (15-minute forecasts), charging time to full or
-  80%, high UV / poor air / high pollen, frost tonight, golden hour, your next alarm, or your next event.
+  80% (measured from the charge rate when Android has no estimate, e.g. on wireless pads; "Charged to
+  80%" for phones with a charge limit), high UV / poor air / high pollen, frost tonight, golden hour, your next alarm, or your next event.
   Only alarms set by a clock app count (calendar and reminder apps can set system alarms too); settings
   show which alarm Android reports and who set it.
 - **Calendar sources**: calendars synced into Android (Google, Xiaomi, Samsung, Etar, DAVx⁵…) and/or

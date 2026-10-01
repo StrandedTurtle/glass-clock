@@ -147,9 +147,20 @@ class WeatherExtrasTest {
         assertEquals("Full in 1 h 40 min", SmartLine.chargeText(c, SmartLine.ChargeTarget.Full, labels))
         // 40 of the 60 points left, 80% of that share for the faster first stretch: 100 * 2/3 * 0.8 = 54 min
         assertEquals("80% in 54 min", SmartLine.chargeText(c, SmartLine.ChargeTarget.Eighty, labels))
-        assertNull(SmartLine.chargeText(c.copy(levelPct = 85), SmartLine.ChargeTarget.Eighty, labels))
-        assertNull(SmartLine.chargeText(c.copy(fullInMs = null), SmartLine.ChargeTarget.Full, labels))
         assertNull(SmartLine.chargeText(c, SmartLine.ChargeTarget.Off, labels))
+        // At the limit: say so rather than vanish.
+        assertEquals("Charged to 80%", SmartLine.chargeText(c.copy(levelPct = 80), SmartLine.ChargeTarget.Eighty, labels))
+        assertEquals("Fully charged", SmartLine.chargeText(c.copy(levelPct = 100), SmartLine.ChargeTarget.Full, labels))
+    }
+
+    @Test fun chargingFallsBackToMeasuredRate() {
+        // No Android estimate (wireless pad, charge limit): nothing measured yet shows the level...
+        val c = SmartLine.Charging(levelPct = 62)
+        assertEquals("Charging · 62%", SmartLine.chargeText(c, SmartLine.ChargeTarget.Eighty, labels))
+        // ...then the measured rate: 18 points at 36 %/h = 30 min.
+        assertEquals("80% in 30 min", SmartLine.chargeText(c.copy(pctPerHour = 36.0), SmartLine.ChargeTarget.Eighty, labels))
+        // To full: 18 points fast, then 20 points at two-thirds speed: 0.5 h + 20 / 23.76 h = 81 min.
+        assertEquals("Full in 1 h 21 min", SmartLine.chargeText(c.copy(pctPerHour = 36.0), SmartLine.ChargeTarget.Full, labels))
     }
 
     @Test fun healthAlertsOnlyWhenBad() {
